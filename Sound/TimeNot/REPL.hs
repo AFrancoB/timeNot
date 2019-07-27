@@ -1,4 +1,4 @@
-module REPL where
+module Sound.TimeNot.REPL where
 
 import  qualified Sound.OSC as SOSC
 import Sound.OSC.Transport.FD.UDP

@@ -1,4 +1,4 @@
-module Parsers where
+module Sound.TimeNot.Parsers where
 
 import Text.Parsec 
 import Text.ParserCombinators.Parsec.Prim hiding (try)

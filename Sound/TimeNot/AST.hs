@@ -1,4 +1,4 @@
-module AST where
+module Sound.TimeNot.AST where
 
 import Data.Time
 -- Datatypes
