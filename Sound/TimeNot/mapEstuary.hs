@@ -7,9 +7,9 @@ import qualified Data.Text as Tx
 import Data.Text (Text)
 import Data.Time
 
-import AST
-import ToEvents
-import REPL
+import Sound.TimeNot.AST
+import Sound.TimeNot.ToEvents
+import Sound.TimeNot.REPL
 
 timeNot:: UTCTime  ->  Text -> Either Text [(UTCTime, Map Text Datum)]
 timeNot now toEval = 

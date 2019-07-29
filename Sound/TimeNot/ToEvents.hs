@@ -16,7 +16,7 @@ import Data.Ord (comparing)
 import Data.Time 
 import Music.Theory.Bjorklund
 
-import AST
+import Sound.TimeNot.AST
 
 
 -- toCollider:: UTCTime -> Program -> IO()

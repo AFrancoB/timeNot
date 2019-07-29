@@ -28,18 +28,6 @@ TimeNot {
 
 	}
 
-	// creates the OSCDef to produce sound events taking into consideration
-	*connect {
-		(
-			OSCdef(\timeNot, {|msg, time, addr, recvPort|
-
-				(instrument: ~instrs.(msg[4].asString), timingOffset: msg[1], sust: msg[2], freq: msg[3], amp: msg[5], which: ~osc.(msg[4].asString.postln) ).play
-
-			}, "/canon");
-)
-
-
-	}
 
 	*defaultServerConfig {
 		var server;

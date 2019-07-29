@@ -6,8 +6,8 @@ import Data.Functor.Identity
 import qualified Text.Parsec.Token as P
 
 -- My stuff
-import AST
-import ToEvents
+import Sound.TimeNot.AST
+import Sound.TimeNot.ToEvents
 
 --Parser to put together the structures! -------------------------------
 

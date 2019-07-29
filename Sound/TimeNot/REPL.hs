@@ -13,17 +13,10 @@ import Data.Time.Clock.POSIX (utcTimeToPOSIXSeconds)
 import qualified Data.Time as T
 import Data.Either
 
-import AST
-import Parsers
-import ToEvents
+import Sound.TimeNot.AST
+import Sound.TimeNot.Parsers
+import Sound.TimeNot.ToEvents
 
-main :: IO ()
-main = do
-  udp <- udpServer "127.0.0.1" 57300
-  elMVar <- newMVar []
-  forkIO $ scheduler udp elMVar
-  forkIO $ repl udp elMVar
-  return ()
 
 scheduler :: UDP -> MVar [Event] -> IO ()
 scheduler udp elMVar = do
