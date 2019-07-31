@@ -283,6 +283,15 @@ canonicPitch onsetP voices (Sample (Samples instNames) pattern rates amps) =
         transpRates = rateTransps rateStruct voices
     in transpRates
 
+canonicPitch onsetP voices (Dirt (Dirties instNames) pattern rates amps) = 
+    let onsetes = onsetToOnset onsetP
+        onsets = map (fst) onsetes
+        -- structure the pitch series in a structure depending in the organisation pattern:
+        rateStruct = paramStructure onsets rates pattern
+        -- transpositions!
+        transpRates = rateTransps rateStruct voices
+    in transpRates
+
 rateTransps:: [Rate] -> VoicesData -> [Rates] -- rateTransps does nothing but replicate the pattern of rates to fit the number of voices
 rateTransps x voices =
     let transps = map (snd) voices
