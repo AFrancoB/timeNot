@@ -334,6 +334,15 @@ canonicAmp onsetP voices (Sample (Samples instNames) pattern rate amps) =
         voicesAmps = replicate (length voices) transpAmps
     in voicesAmps
 
+canonicAmp onsetP voices (Dirt (Dirties instNames) pattern rate amps) =
+    let onsetes = onsetToOnset onsetP
+        onsets = map (fst) onsetes
+        -- structure the pitch series in a structure depending in the organisation pattern:
+        ampStruct = paramStructure onsets amps pattern
+        -- transpositions!
+        transpAmps = map (\x -> x / (fromIntegral (length (voices)) :: Double )) ampStruct
+        voicesAmps = replicate (length voices) transpAmps
+    in voicesAmps
 
 -------------------------------------------------------
 paramStructure:: [Bool] -> [Double] -> StreamPattern -> [Double]
@@ -408,7 +417,7 @@ canonicTimbre onsetP voices (Sample (Samples instNames) pattern rate amp) =
         cycled = instrCycle voicesL instNames
     in map (\x -> replicateInst x filtered) cycled
 
-canonicTimbre onsetP voices (Dirt (Dirties instNames) pattern rate amp) = 
+canonicTimbre onsetP voices (Dirt (Dirties instNames) pattern rate amp) =
     let onsetes = onsetToOnset onsetP
         onsets = map (fst) onsetes
         voicesL = length voices
