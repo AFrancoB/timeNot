@@ -1,4 +1,4 @@
-name:                timeNot
+name:                TimeNot
 version:             0.0.0.1
 synopsis:            Notation for a time-oriented live coding practice
 description:         Please see README.md
@@ -15,17 +15,18 @@ extra-source-files:
 
 Library
   hs-source-dirs:    .
-  Build-Depends:     base, parsec, parser-combinators, time, mtl, transformers, hosc, network, containers, text
+  Build-Depends:     base, parsec, time, hmt, mtl, hosc, network, containers, text
   GHC-Options:       -Wall -fwarn-tabs -fno-warn-unused-do-bind
-  Exposed-modules:   sound.timeNot.AST
-                     sound.timeNot.REPL
-                     sound.timeNot.Parsers
-                     sound.timeNot.mapEstuary
-  other-modules:     sound.timeNot.ToEvent
+  Exposed-modules:   Sound.TimeNot.AST
+                     Sound.TimeNot.REPL
+                     Sound.TimeNot.Parsers
+                     Sound.TimeNot.MapEstuary
+                     Sound.TimeNot.ToEvents
+  --other-modules:     
   default-language:  Haskell2010
 
 executable timeNot
   hs-source-dirs:    .
   main-is:           Main.hs
-  build-depends:     base, parsec, parser-combinators, time, mtl, transformers, hosc, network, containers, text
+  build-depends:     base, parsec, time, hmt, mtl, hosc, network, containers, text
   default-language:  Haskell2010

@@ -26,7 +26,7 @@ scheduler udp elMVar = do
   let (nearEvents,distantEvents) = partition f el  -- divides events in near and distant
   putMVar elMVar distantEvents -- adds distant events to the existing ones
   eventsToSuperCollider udp nearEvents -- ¿? ¿? ¿?
-  putStrLn $ show (length nearEvents) ++ " events out"
+  --putStrLn $ show (length nearEvents) ++ " events out"
   threadDelay 100000 -- do every 0.1 secs
   scheduler udp elMVar --recursion
 
