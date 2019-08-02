@@ -123,13 +123,36 @@ testInstr x = concat $ canonicTimbre (onsetPattern x) (voices x) (streams x)
 -- adds the last onset with the last to get Total Dur of a voice
 totalDur:: OnsetPattern -> VoicesData -> CanonType -> Time
 totalDur onsetP voices canonType =
-    let times = canonicTime onsetP voices canonType
+    let times = canonicTime onsetP voices canonType -- here is the problem!!!!
         lengths = eventLength onsetP voices canonType
-        lastOnset = last $ head times
+        lastOnset = lastGrid onsetP voices canonType
         prop = last $ head lengths
 --        prop = head $ map (fst) voices 
     in lastOnset + prop
 
+-- necesito una funcion que me devuelva 
+-- el último punto de la cuadricula (ya sea onset o offset)   
+testGrid = lastGrid (Onsets [(True,False),(True,False), (False, False), (False, False), (False, False), (False, False), (False, False), (False, False)]) [(1,0),(2,0)] (Convergence (CP 1))
+
+lastGrid:: OnsetPattern -> VoicesData -> CanonType -> Double
+lastGrid onsetP voices (Convergence cnvPoint) = 
+    let onsetes = onsetToOnset onsetP
+        onsets = map (fst) onsetes
+        zippAbstDur = map (snd) $ zip onsets [0.0,1.0..]
+        props = map (fst) voices
+        proportionals = proportions zippAbstDur props
+        orderedDurs = reverse $ timeSort proportionals
+        cp = funcForConvPoint cnvPoint onsets
+        modCP = (cp-1) `mod` (length onsets) 
+        longestBCP = head orderedDurs !! modCP  
+        bcps = map (!! modCP) orderedDurs
+        canonicOffsets = map (\x -> longestBCP - x) bcps
+        dursAndCoffsets = zip canonicOffsets orderedDurs
+        canonDurs = map (timesToCanTimes) dursAndCoffsets
+        filtering = map (\x -> zip onsets x) canonDurs 
+        last' = snd $ last $ head filtering
+    in last'
+    
 totalDur':: (Times,LeEvents) -> Time
 totalDur' (times,evDur) =
     let lastOnset = last times
@@ -140,8 +163,7 @@ totalDur' (times,evDur) =
 --all times and event Lengths to feet the canonic length
 scalingFactor:: OnsetPattern -> VoicesData -> CanonType -> (CanonDurations,Loop) -> [Time] -- outputs scalingFactor, a time that multiplied by Time produces a scaled time according to one item in [cLength]
 scalingFactor onsetP voices canonType clengths =
-    let times = canonicTime onsetP voices canonType
-        totalDuration = totalDur onsetP voices canonType
+    let totalDuration = totalDur onsetP voices canonType
         scalingFactors = map (\x -> x / totalDuration) (fst clengths) 
     in scalingFactors
 
@@ -154,6 +176,8 @@ onsetToOnset (Onsets x) = x
 --Example
 --Canon {clength = [1.0], voices = [(4.0,0.0),(5.0,12.0),(6.0,24.0)], onsetPattern = Onsets [True,False,True,False], metricDepth = 0.5, canonType = Convergence 3, streams = Streams (Waveshape ["sin"] [60.0,67.0] "iso") [("amp",[0.5])]})
 --Canon {clength = [1.0], onsetPattern = Onsets [(True,False),(True,False),(False,False),(True,False)], voices = [], canonType = Convergence 0, streams = Synth (Samples ["bd"]) "iso" [] [0.1]}
+
+testCanTime = canonicTime (Onsets [(True,False),(True,False), (False, False), (False, False), (False, False), (False, False), (False, False), (False, False)]) [(1,0),(2,0)] (Convergence (CP 0))
 
 canonicTime:: OnsetPattern -> VoicesData -> CanonType -> [Times] 
 canonicTime onsetP voices (Convergence cnvPoint) = 
