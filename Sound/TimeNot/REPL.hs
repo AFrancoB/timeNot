@@ -52,6 +52,13 @@ sendEvents udp events = do
   sequence $ fmap (sendEvent udp) events
   return ()
 
+sendError:: UDP -> String ->  IO()
+sendError udp string = sendTo udp er a
+  where 
+    er = SOSC.p_message "/printError" [SOSC.string string]
+    a = SockAddrInet 57120 $ tupleToHostAddress (127,0,0,1)
+
+
 utcTimeToSplitPosixTime :: T.UTCTime -> (Int,Int)
 utcTimeToSplitPosixTime t = (seconds,microseconds)
   where
@@ -64,14 +71,17 @@ repl udp elMVar = do
   m <- FD.recvMessage udp -- recieves message
   let m' = messageToProgram m -- transforms message to program
   now <- T.getCurrentTime  -- get current time
-  eitherErrorOrProgram elMVar now m'
+  eitherErrorOrProgram udp elMVar now m'
   repl udp elMVar
 
-eitherErrorOrProgram :: MVar [Event] -> T.UTCTime -> Either String Program -> IO ()
-eitherErrorOrProgram elMVar now (Left m) = putStrLn m
-eitherErrorOrProgram elMVar now (Right p) = do
+eitherErrorOrProgram :: UDP -> MVar [Event] -> T.UTCTime -> Either String Program -> IO ()
+eitherErrorOrProgram udp elMVar now (Left m) = {- putStrLn m -}do
+  putStrLn m
+  sendError udp m
+  return ()
+eitherErrorOrProgram udp elMVar now (Right p) = do
   let es = progToEvents now p
-  putStrLn $ show (length es)
+  putStrLn $ show (length es) 
   existing <- takeMVar elMVar
   putMVar elMVar $ existing ++ es
 

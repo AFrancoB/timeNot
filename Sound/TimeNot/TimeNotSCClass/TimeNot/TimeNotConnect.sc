@@ -26,6 +26,16 @@
 				(instrument: ~instrs.(msg[5].asString), timingOffset: time, sust: msg[3], freq: msg[4], amp: msg[6], which: ~osc.(msg[5].asString.postln) ).play
 
 			}, "/canon");
+		);
+
+		( // displays error messages;
+			OSCdef(\errors, {|msg, time, addr, recvPort|
+
+				msg[1].postln;
+
+
+
+			}, "/printError");
 		)
 	}
 }
