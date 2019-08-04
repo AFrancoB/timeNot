@@ -28,21 +28,32 @@ runCanonParser :: String -> Either ParseError [Expression]
 runCanonParser x = parse topLevelParser "" x
 
 expression :: Parser Expression
-expression = choice [runTempo,runCanon]
+expression = choice [runTiempo,runCanon]
 
 runCanon :: Parser Expression
 runCanon = RunCanon <$> canonParser
 
 -- this will have to change the bpms/cps when implemented in Estuary and even connected to the TempoClock of SC 
-runTempo :: Parser Expression
-runTempo = RunTempo <$> tempoParser
+runTiempo :: Parser Expression
+runTiempo = RunTempo <$> tiempoParser
 
 
-tempoParser:: Parser TempoChange
-tempoParser = do
-    try (oneOf "tiempo:")
+tiempoParser:: Parser TiempoChange
+tiempoParser = do
+    x <- choice [cpsParser, bpmParser]
+    return x 
+
+cpsParser:: Parser TiempoChange
+cpsParser = do
+    try $ reserved "cps:"
     x <- float
-    return (x)
+    return (BPM x)
+
+bpmParser:: Parser TiempoChange
+bpmParser = do
+    try $ reserved "bpm:" 
+    x <- float
+    return (CPS x)
 
 -- example:
 -- runCanonParser "|: 1.0 :| Temp: 4.0:5.0:6.0:7.0 Transp: 0.0|12.0|24.0 xoxom2 conv 3 sin 60.0 67.0 iso"
@@ -88,14 +99,14 @@ durationParser= do
 loopParser:: Parser ([CanonDuration], Loop)
 loopParser= do
     try (reserved "|:") 
-    durees <- (sepBy (choice [try( secondParser), try(tempoDurParser), cycleParser]) (char '|')) 
+    durees <- (sepBy (choice [try( secondParser), try(tempoParser), cycleParser]) (char '|')) 
     try (reserved ":|")
     return (concat(durees), True)
 
 noLoopParser:: Parser ([CanonDuration], Loop)
 noLoopParser= do
     try (reserved "|.")
-    durees <- (sepBy (choice [try( secondParser), try(tempoDurParser), cycleParser]) (char '|'))
+    durees <- (sepBy (choice [try( secondParser), try(tempoParser), cycleParser]) (char '|'))
     try (reserved ".|")
     return (concat(durees), False)
 
@@ -108,23 +119,29 @@ secondParser = do
     reps <- durRepParser <|> (return 1)
     return (replicate reps (t*md))  
 
-tempoDurParser :: Parser [CanonDuration]
-tempoDurParser = do
+tempoParser :: Parser [CanonDuration]
+tempoParser = do
     whiteSpace
-    t <- double  <|> (return 4.0)
+    x <- double  <|> (return 4.0)
     reserved "t"
     md <- parserMetricDepth <|> (return 1.0)
     reps <- durRepParser <|> (return 1)
-    return (replicate reps (t*md))  
+    return (replicate reps ((bpmToSecs x (BPM 60))*md)) -- OJO! 60 is the placeholder of the tempo change, I need to figure otu how to apply tempochanges  
+
+bpmToSecs:: Double -> TiempoChange -> CanonDuration
+bpmToSecs x (BPM t) = (60/t) * x
 
 cycleParser :: Parser [CanonDuration]
 cycleParser = do
     whiteSpace
-    t <- double  <|> (return 1.0)
+    x <- double  <|> (return 1.0)
     reserved "c"
     md <- parserMetricDepth <|> (return 1.0)
     reps <- durRepParser <|> (return 1)
-    return (replicate reps (t*md))  
+    return (replicate reps ((cpsToSecs x (CPS 1))*md)) -- OJO, same case as in tempoParser  
+
+cpsToSecs:: Double -> TiempoChange -> CanonDuration
+cpsToSecs x (CPS c) =  (1/c) * x
 
 durRepParser:: Parser Int 
 durRepParser = do
@@ -212,15 +229,21 @@ euclidianParser = do
     w <- integer
     optional (try (reservedOp ":r:")) 
     x <- integer <|> (return 0)
-    optional (try (reservedOp ":p:")) 
-    y <- onsetPatternParser <|> (return (Onsets [(True, False)]))
-    optional (try (reservedOp ":cp:"))
-    z <- integer <|> (return 0)
-    return (eucToOnsetPattern (fromIntegral z :: Int) (fromIntegral v :: Int) (fromIntegral w :: Int) (fromIntegral x :: Int) (fromEmptyToTrue y))
+    y <- parserP <|> return (Onsets [(True,False)])
+
+    return (eucToOnsetPattern (fromIntegral 0 :: Int) (fromIntegral v :: Int) (fromIntegral w :: Int) (fromIntegral x :: Int) (fromEmptyToTrue y))
+-- OJO. First value of eucToOnsetPattern is a CP, an idea that never worked properly. 
+-- Needs to be removed in the future.
 
 fromEmptyToTrue:: OnsetPattern -> OnsetPattern
 fromEmptyToTrue (Onsets []) = Onsets [(True,False)]
 fromEmptyToTrue x = x
+
+parserP:: Parser OnsetPattern 
+parserP = do
+    try $ reserved "p:"
+    x <- onsetPatternParser <|> (return (Onsets [(True, False)]))
+    return x
 
 pruebaEucledian :: String -> Either ParseError [Onset]
 pruebaEucledian x = parse euclidianParser "" x

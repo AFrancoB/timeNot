@@ -95,8 +95,8 @@ data Canon = Canon {
 
   } deriving (Show)
 
-type TempoChange = Double
+data TiempoChange = BPM Double | CPS Double deriving (Show)
 
-data Expression = RunTempo TempoChange | RunCanon Canon deriving (Show)
+data Expression = RunTempo TiempoChange | RunCanon Canon deriving (Show)
   
 type Program = [Expression]
