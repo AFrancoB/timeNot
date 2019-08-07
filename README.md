@@ -187,6 +187,6 @@ There are many areas in which this notation needs to become more robust. Firstly
 
 The keys `ra:`, `tr:` and the sound patterns should recieve functions to algorithmically produce canons and sound patterns. Integrating Haskell's powerfull functional programming capabilities into the notation.
 
-The canonic structures developed by Conlon Nancarrow include divergence canons, acceleration canons, multicanonic structures. All of these should be integrated to the notation so it is possible to continuo to explore the polytemporality proposed by the Mexican artist.
+The canonic structures developed by Conlon Nancarrow include divergence canons, acceleration canons, multicanonic structures. All of these should be integrated to the notation so it is possible to continue to explore the polytemporality proposed by the Mexican artist.
 
-The sound parameters will have to icnlude other especific keys like pan or out and also icnlude the possibility of personalised synthesis definitions that SuperCollider enables. 
+The sound parameters will have to include other especific keys like pan or out and also include the possibility of personalised synthesis definitions that SuperCollider enables. 
