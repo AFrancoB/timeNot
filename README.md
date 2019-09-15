@@ -1,6 +1,7 @@
 # Time Not <!-- omit in toc -->
 A computational notation for time-oriented live coding, inspired and developed within the project: `Nanc-in-a-Can/canon-generator`
 
+- [Acknowledgement](#Acknowledgement)
 - [Objectives](#Objectives)
 - [Installation](#Installation-as-a-SuperCollider-Extension-and-parasite)
 - [Choose an Environment for Time Not](#Choose-an-Environment-for-Time-Not)
@@ -21,6 +22,11 @@ A computational notation for time-oriented live coding, inspired and developed w
 - [Further Development](#Further-Development)
 - [Time](#Time)
 
+## Acknowledgement
+
+This project was possible thanks to the support of the CONAHCYT and FONCA institutions, and the program for scholarships for studies abroad (Programa de Becas para Estudios en el Extranjero).
+
+This project is a major research project conducted in McMaster University supervised by David Ogborn.
 
 ## Objectives
 `Time Not` is a computational notation capable of expressing complex rhythmic ideas with a particular emphasis in poly-temporality as developed by the socialist Mexican artist Conlon Nancarrow. The main idea approached in this notation is the [tempo canon](https://github.com/nanc-in-a-can/canon-generator#temporal-canons). However, many rhythmic strategies, techniques and ideas can be notated easily including euclidean rhythms and onset patterns. This notation was developed as a way to expand the conceptual mechanisms of the [Nanc-in-a-Can/canon-generator](https://github.com/nanc-in-a-can/canon-generator) software beyond the restrains of SuperCollider's notational capabilities. The creation of this notation aimed to integrate rhythmic strategies with the aforementioned canonic ideas in such a way that nuance and specificity of temporal organisation produces a fertile ground for time-oriented sonic experimentation.
