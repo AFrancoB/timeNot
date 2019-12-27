@@ -28,7 +28,7 @@ s.waitForBoot({
 		"compander activated in bus: 99 out bus: 0".postln;
 		"to change compander: ~comp.set(\out, 0, \in, 99, \gate, 1)".postln;
 		0.5.wait;
-		"Bienvenido a TimeNot".postln;"un parásito en el IDE de SuperCollider".postln
+		"Bienvenido a TimeNot".postln;"ecologías temporales en simbiosis con tu SuperCollider".postln
 	}).play;
 
 })
