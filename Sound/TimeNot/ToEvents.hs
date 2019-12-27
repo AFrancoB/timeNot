@@ -163,14 +163,9 @@ totalDur' (times,evDur) =
 --all times and event Lengths to feet the canonic length
 scalingFactor:: OnsetPattern -> VoicesData -> CanonType -> (CanonDurations,Loop) -> [Time] -- outputs scalingFactor, a time that multiplied by Time produces a scaled time according to one item in [cLength]
 scalingFactor onsetP voices canonType clengths =
-<<<<<<< HEAD
-    let totalDuration = totalDur onsetP voices canonType
-        scalingFactors = map (\x -> x / totalDuration) (fst clengths) 
-=======
     let times = canonicTime onsetP voices canonType
         totalDuration = totalDur onsetP voices canonType
         scalingFactors = map (\x -> x / totalDuration) (fst clengths)
->>>>>>> 13dfb5b8117826918eaa9adaf2efb90c772e72f7
     in scalingFactors
 
 -----------------------------------------------------------------
@@ -183,15 +178,8 @@ onsetToOnset (Onsets x) = x
 --Canon {clength = [1.0], voices = [(4.0,0.0),(5.0,12.0),(6.0,24.0)], onsetPattern = Onsets [True,False,True,False], metricDepth = 0.5, canonType = Convergence 3, streams = Streams (Waveshape ["sin"] [60.0,67.0] "iso") [("amp",[0.5])]})
 --Canon {clength = [1.0], onsetPattern = Onsets [(True,False),(True,False),(False,False),(True,False)], voices = [], canonType = Convergence 0, streams = Synth (Samples ["bd"]) "iso" [] [0.1]}
 
-<<<<<<< HEAD
-testCanTime = canonicTime (Onsets [(True,False),(True,False), (False, False), (False, False), (False, False), (False, False), (False, False), (False, False)]) [(1,0),(2,0)] (Convergence (CP 0))
-
-canonicTime:: OnsetPattern -> VoicesData -> CanonType -> [Times] 
-canonicTime onsetP voices (Convergence cnvPoint) = 
-=======
 canonicTime:: OnsetPattern -> VoicesData -> CanonType -> [Times]
 canonicTime onsetP voices (Convergence cnvPoint) =
->>>>>>> 13dfb5b8117826918eaa9adaf2efb90c772e72f7
     let onsetes = onsetToOnset onsetP
         onsets = map (fst) onsetes
         cpOnset = map (snd) onsetes -- this will be used for something else!! not cp
