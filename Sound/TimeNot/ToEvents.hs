@@ -17,6 +17,7 @@ import Data.Time
 import Music.Theory.Bjorklund
 
 import Sound.TimeNot.AST
+import Sound.TimeNot.InfinityFuncs
 
 
 -- toCollider:: UTCTime -> Program -> IO()
@@ -44,7 +45,7 @@ canonToEvents now x =
         cycleInstr = take (length $ concat scaledTimes) $ cycle instruments
         cycleAmps = take (length $ concat scaledTimes) $ cycle amps
         zipped = zipWith5 Event (timesOut') (evLengthOut) (cyclePitch) (cycleInstr) (cycleAmps)
-    in zipped
+    in infinitizar now zipped
   where
     scaling = scalingFactor (onsetPattern x) (voices x) (canonType x) (clength x) -- [Time]
     times = canonicTime (onsetPattern x) (voices x) (canonType x)  -- [Times]
@@ -153,11 +154,11 @@ lastGrid onsetP voices (Convergence cnvPoint) =
         last' = snd $ last $ head filtering
     in last'
     
-totalDur':: (Times,LeEvents) -> Time
+totalDur':: (Times,LeEvents) -> NominalDiffTime
 totalDur' (times,evDur) =
     let lastOnset = last times
         eventDur = head $ evDur
-    in lastOnset + eventDur
+    in realToFrac (lastOnset + eventDur) :: NominalDiffTime
 
 -- gets a number that, multiplied by each duratiov value, will scale
 --all times and event Lengths to feet the canonic length
