@@ -71,7 +71,7 @@ type Instruments = [InstNames]   -- crap
 
 -- Event is what is send as an OSC message to SC
 data Event = Event {
-  time :: UTCTime, -- is this really onset? consider UTCTime and NominalDiffTime
+  time :: UTCTime,
   lengthEvent :: LeEvent, 
   pitch :: Pitch,
   instrument :: Instrument,

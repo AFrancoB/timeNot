@@ -32,7 +32,7 @@ expToEvent now (RunTempo t) = []
 expToEvent now (RunCanon c) = canonToEvents now c
 
 testCanToEv:: Canon
-testCanToEv = Canon {clength = ([2.0,4.0,3.0],True), onsetPattern = Onsets [(True,False),(True,False),(False,False),(True,False)], voices = [(1.0,0.0),(2.0,12.0),(3.0,-12.0)], canonType = Convergence (CP 1), streams = Synth (Waveshape ["saw","tri"]) "iso" [60.0, 62.0, 63.0, 65.0] [0.5]}
+testCanToEv = Canon {clength = ([2.0],True), onsetPattern = Onsets [(True,False),(True,False),(False,False),(True,False)], voices = [(1.0,0.0),(2.0,12.0),(3.0,-12.0)], canonType = Convergence (CP 1), streams = Synth (Waveshape ["saw","tri"]) "iso" [60.0, 62.0, 63.0, 65.0] [0.5]}
 -- |. 2s | 4s | 3s .|
 
 canonToEvents :: UTCTime -> Canon -> [Event]
@@ -45,10 +45,11 @@ canonToEvents now x =
         cycleInstr = take (length $ concat scaledTimes) $ cycle instruments
         cycleAmps = take (length $ concat scaledTimes) $ cycle amps
         zipped = zipWith5 Event (timesOut') (evLengthOut) (cyclePitch) (cycleInstr) (cycleAmps)
-    in infinitizar now zipped
+    in infinitizar now totalDur zipped
   where
-    scaling = scalingFactor (onsetPattern x) (voices x) (canonType x) (clength x) -- [Time]
-    times = canonicTime (onsetPattern x) (voices x) (canonType x)  -- [Times]
+    scaling = scalingFactor (onsetPattern x) (voices x) (canonType x) (clength x) :: [Time]
+    times = canonicTime (onsetPattern x) (voices x) (canonType x) :: [[Time]]
+    totalDur = (sum (head times)) * (head scaling)
     evLength = eventLength (onsetPattern x) (voices x) (canonType x) -- [LeEvents]
     scaledTimes = scalingToDurations (concat times) scaling -- [Times]
     scaledLength = scalingToDurations (concat evLength) scaling -- [Times]
@@ -57,6 +58,8 @@ canonToEvents now x =
     pitches = concat $ canonicPitch (onsetPattern x) (voices x) (streams x)
     instruments = concat $ canonicTimbre (onsetPattern x) (voices x) (streams x)
     amps = concat $ canonicAmp (onsetPattern x) (voices x) (streams x)
+
+
 
 
 doubleToNDT:: [Time] -> [NominalDiffTime]
