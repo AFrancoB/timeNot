@@ -45,7 +45,8 @@ canonToEvents now x =
         cycleInstr = take (length $ concat scaledTimes) $ cycle instruments
         cycleAmps = take (length $ concat scaledTimes) $ cycle amps
         zipped = zipWith5 Event (timesOut') (evLengthOut) (cyclePitch) (cycleInstr) (cycleAmps)
-    in infinitizar now totalDur zipped
+        loop = if (snd (clength x)) == True then (infinitizar now totalDur zipped) else zipped
+    in loop
   where
     scaling = scalingFactor (onsetPattern x) (voices x) (canonType x) (clength x) :: [Time]
     times = canonicTime (onsetPattern x) (voices x) (canonType x) :: [[Time]]
