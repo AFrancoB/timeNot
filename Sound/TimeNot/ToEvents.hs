@@ -5,6 +5,7 @@ testInstr,
 canonToEvents,
 repeater,
 eucToOnsetPattern,
+fullEucToOnsetPattern,
 {- toCollider, -}
 progToEvents,
 onsetToOnset,
@@ -503,7 +504,16 @@ eucToOnsetPattern cp k n r (Onsets onset) =
 subPattToEucPatt :: Bool -> [Onset] -> [Onset]
 subPattToEucPatt bool onset = if bool==True then onset else (replicate (length onset) (False,False))
 
+----- Full Euclidean
 
+fullEucToOnsetPattern :: (Int,OnsetPattern) -> (Int,OnsetPattern) -> Int -> [Onset]
+fullEucToOnsetPattern (k,(Onsets onsetX)) (n,(Onsets onsetO)) r =
+    let bjork = bjorklund (k,n) 
+        patt = map (\x -> if x == True then onsetX else onsetO) bjork
+        rot = rotate r $ concat patt
+    in rot
+-- OJO!!!!! Aquí es necesario implementar una función para que solo se pase la última instancia
+-- del CP en la repetición del patrón
 
 repeater:: [Onset] -> Int -> [Onset]
 repeater val num =

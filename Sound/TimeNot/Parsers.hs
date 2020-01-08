@@ -187,7 +187,7 @@ pruebaMetricDepth x = parse parserMetricDepth "" x
 
 onsetPatternParser:: Parser OnsetPattern
 onsetPatternParser = do
-    x <- many1 $ choice [ try euclidianParser , try repeatParser, try onsetParser] -- here I need to add the euclidean parsers, no clue how!!
+    x <- many1 $ choice [ try fullEuclidianParser, try euclidianParser , try repeatParser, try onsetParser] -- here I need to add the euclidean parsers, no clue how!!
     whiteSpace
     return (Onsets $ concat x)
 
@@ -230,7 +230,6 @@ euclidianParser = do
     optional (try (reservedOp ":r:")) 
     x <- integer <|> (return 0)
     y <- parserP <|> return (Onsets [(True,False)])
-
     return (eucToOnsetPattern (fromIntegral 0 :: Int) (fromIntegral v :: Int) (fromIntegral w :: Int) (fromIntegral x :: Int) (fromEmptyToTrue y))
 -- OJO. First value of eucToOnsetPattern is a CP, an idea that never worked properly. 
 -- Needs to be removed in the future.
@@ -241,13 +240,48 @@ fromEmptyToTrue x = x
 
 parserP:: Parser OnsetPattern 
 parserP = do
-    try $ reserved "p:"
+    try $ reservedOp "p:"
     x <- onsetPatternParser <|> (return (Onsets [(True, False)]))
     return x
+
 
 pruebaEucledian :: String -> Either ParseError [Onset]
 pruebaEucledian x = parse euclidianParser "" x
 
+-- full euclidean
+
+--  euclidian:
+
+fullEuclidianParser:: Parser [Onset]
+fullEuclidianParser = do
+    v <- integer
+    try (reservedOp ":E:")
+    w <- integer
+    optional (try (reservedOp ":R:")) 
+    x <- integer <|> (return 0)
+    y <- angles $ parserX <|> return (Onsets [(True,False)])
+    z <- angles $ parserO <|> return (Onsets [(False,False)])
+  --  z <- parserO <|> return (Onsets [(False,False)])
+    return (fullEucToOnsetPattern ((fromIntegral v :: Int),fromEmptyToTrue y) ((fromIntegral w :: Int),fromEmptyToTrue z) (fromIntegral x :: Int))
+
+parserX:: Parser OnsetPattern 
+parserX = do
+    optional whiteSpace
+    reservedOp "X:"
+    x <- onsetPatternParser <|> (return (Onsets [(True, False)]))
+    optional whiteSpace
+    return x
+
+parserO:: Parser OnsetPattern 
+parserO = do
+    optional whiteSpace
+    reservedOp "O:"
+    x <- onsetPatternParser <|> (return (Onsets [(False, False)]))
+    optional whiteSpace
+    return x
+
+-- pruebaEucledian :: String -> Either ParseError [Onset]
+-- pruebaEucledian x = parse euclidianParser "" x
 
 ---------------------------------------------------------------------
 --   Canonise:    -- probably this is not useful
