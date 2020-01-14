@@ -10,6 +10,11 @@ type Loop = Bool
 -- For Metric Depth Parser
 type MetricDepth = Double
 
+type EventF = UTCTime -> UTCTime -> [Event] 
+
+-- semi-lazy Period
+ --         Events  originTime   PeriodDuration
+type SLP = ([Event], UTCTime, NominalDiffTime)
 
 
 -- For Onset Pattern Parser

@@ -8,8 +8,7 @@ eucToOnsetPattern,
 fullEucToOnsetPattern,
 {- toCollider, -}
 progToEvents,
-onsetToOnset,
-toDB
+onsetToOnset
 ) where
 
 import Data.List
@@ -25,29 +24,105 @@ import Sound.TimeNot.InfinityFuncs
 -- toCollider now prog = sendEvents $ progToEvents now prog
 --toCollider prog = sequence $ fmap (sendEvents) $ progToEvents prog
 
-progToEvents :: UTCTime -> Program -> [Event]
-progToEvents now x = concat $ fmap (expToEvent now) x
+progToEvents :: UTCTime -> Program -> EventF
+progToEvents oTime x' windowStart windowEnd = concat $ fmap (\x -> expToEvent oTime x windowStart windowEnd) x'
 
-expToEvent :: UTCTime -> Expression -> [Event]
-expToEvent now (RunTempo t) = []
-expToEvent now (RunCanon c) = canonToEvents now c
+expToEvent :: UTCTime -> Expression -> EventF
+expToEvent oTime (RunTempo t) = \_ _ -> []
+expToEvent oTime (RunCanon c) = sLPToEventF $ canonToEvents oTime c
 
 testCanToEv:: Canon
-testCanToEv = Canon {clength = ([2.0],True), onsetPattern = Onsets [(True,False),(True,False),(False,False),(True,False)], voices = [(1.0,0.0),(2.0,12.0),(3.0,-12.0)], canonType = Convergence (CP 1), streams = Synth (Waveshape ["saw","tri"]) "iso" [60.0, 62.0, 63.0, 65.0] [0.5]}
+testCanToEv = Canon {clength = ([2.0],True), onsetPattern = Onsets [(True,False),(True,False),(False,False),(True,False)], voices = [(1.0,0.0),(2.0,12.0),(3.0,-12.0)], canonType = Convergence (CP 4), streams = Synth (Waveshape ["saw","tri"]) "iso" [60.0, 62.0, 63.0, 65.0] [0.5]}
 -- |. 2s | 4s | 3s .|
 
-canonToEvents :: UTCTime -> Canon -> [Event]
-canonToEvents now x =
+-- test
+
+wStart = UTCTime (fromGregorian 2020 01 10) 0
+
+wEnd = UTCTime (fromGregorian 2020 01 10) 1
+
+oTime = UTCTime (fromGregorian 2020 01 10) 0
+
+period = realToFrac 2.0 :: NominalDiffTime
+
+getPercentage:: NominalDiffTime -> NominalDiffTime -> NominalDiffTime -> NominalDiffTime
+getPercentage value scale limit = (value/scale) * limit 
+
+sLPToEventF:: SLP -> EventF -- this is the last step to work ON!!!!!
+sLPToEventF (es,oTime,period) wS wE = 
+    let (startWEv, wholeW, endWEv) = getWindowEvents (es, oTime, period) wStart wEnd
+        (elStart, elEnd) = ((diffUTCTime wS oTime) / period, (diffUTCTime wE oTime) / period)
+        firstWindow = map (\x -> x {time= addUTCTime (diffUTCTime wS oTime) (time x)} ) startWEv 
+        lastWindow = map (\x -> x {time= addUTCTime (diffUTCTime wE oTime) (time x)} ) endWEv
+        periodsToStart = floor $ (realToFrac (diffUTCTime wS oTime) :: NominalDiffTime) -- this are the cycles without decimals! PAY Attention!!
+        periodsToEnd = floor $ (realToFrac (diffUTCTime wE oTime) :: NominalDiffTime)
+        wholePeriods = map (\x -> realToFrac x :: NominalDiffTime) [(periodsToStart+1)..(periodsToEnd-1)]
+        inBetweenWindows = concat $ map (\x -> eventsWithWholePeriods oTime x es) wholePeriods
+    in firstWindow ++ inBetweenWindows ++ lastWindow
+
+eventsWithWholePeriods:: UTCTime -> NominalDiffTime -> [Event] -> [Event]
+eventsWithWholePeriods oTime period events = map (\x -> x {time= addUTCTime period (time x)}) events    
+
+getWindowEvents:: ([Event], UTCTime, NominalDiffTime) -> UTCTime -> UTCTime -> ([Event],NominalDiffTime,[Event])
+getWindowEvents (es,oTime,period) wStart wEnd = 
+    let (sw, wholeWs, ew) = localWindows oTime period wStart wEnd 
+        es' = zip es [0..]
+        normEvents = map (\x-> (getPercentage (fst x) period 1, snd x)) $ map (\x -> (diffUTCTime (time (fst x)) oTime, snd x)) es'
+        startWFilter = filter (\x -> (fst x) >= sw) normEvents  
+        endWFilter = filter (\x -> (fst x) < ew) normEvents
+        startWFilter' = map (offJust) $ concat $ map (\x-> catchEvent startWFilter x oTime period) es
+        endWFilter' = map (offJust) $ concat $ map (\x -> catchEvent endWFilter x oTime period) es
+    in (startWFilter', wholeWs, endWFilter')
+
+catchEvent:: [(NominalDiffTime, Int)] -> Event -> UTCTime -> NominalDiffTime -> [Maybe Event]
+catchEvent filtered event oTime period =
+    let eventTime = diffUTCTime (time event) oTime
+        normEvent = getPercentage eventTime period 1
+        catch = map (\x -> if normEvent == (fst x) then Just event else Nothing) filtered
+    in onlyJusts catch 
+ 
+offJust:: Maybe a -> a
+offJust (Just x) = x
+
+onlyJusts:: [Maybe a] -> [Maybe a] 
+onlyJusts x = filter (onlyJust) x
+
+onlyJust:: Maybe a -> Bool
+onlyJust (Just x) = True
+onlyJust Nothing = False
+
+--                oTime     period     wStart     wEnd        locWS    locWE
+--localWindows:: UTCTime -> NominalDiffTime -> UTCTime -> UTCTime -> [(UTCTime, Int, UTCTime)]
+localWindows otime period wS wE = 
+    let ws = diffUTCTime wS otime
+        we = diffUTCTime wE otime
+        wArea = we - ws
+        epTowS = ws/period -- ellapsed periods to window start
+        fracEPWS = epTowS - (realToFrac (floor epTowS) :: NominalDiffTime) -- starting point of the first window
+        epTowE = we/period -- ellapsed periods to window end
+        fracEPWE = epTowE - (realToFrac (floor epTowE) :: NominalDiffTime) -- ending point of the last window
+        numOfWholePeriods = (wArea/ period) - (fracEPWS + fracEPWE) 
+        (wsP, pds, weP) = (fracEPWS, numOfWholePeriods, fracEPWE)
+    in (wsP,pds,weP)
+
+
+eventsToSLP:: [Event] -> UTCTime -> [CanonDuration] -> SLP
+eventsToSLP es oTime canDurs = (es, oTime, realToFrac (sum canDurs) :: NominalDiffTime)
+
+--                                      
+canonToEvents :: UTCTime -> Canon -> SLP
+canonToEvents oTime x = 
     let timesOut = zipWith (+) (concat scaledTimes) offsets
         nomTime = doubleToNDT timesOut
-        timesOut' = fmap (flip addUTCTime now) nomTime
+        timesOut' = fmap (flip addUTCTime oTime) nomTime
         evLengthOut = concat $ scaledLength
         cyclePitch = take (length $ concat scaledTimes) $ cycle pitches
         cycleInstr = take (length $ concat scaledTimes) $ cycle instruments
         cycleAmps = take (length $ concat scaledTimes) $ cycle amps
         zipped = zipWith5 Event (timesOut') (evLengthOut) (cyclePitch) (cycleInstr) (cycleAmps)
-        loop = if (snd (clength x)) == True then (infinitizar now totalDur zipped) else zipped
-    in loop
+ --       loop = if (snd (clength x)) == True then (infinitizar oTime totalDur zipped) else zipped
+        toLoop = zipped
+    in eventsToSLP toLoop oTime (fst (clength x))  
   where
     scaling = scalingFactor (onsetPattern x) (voices x) (canonType x) (clength x) :: [Time]
     times = canonicTime (onsetPattern x) (voices x) (canonType x) :: [[Time]]
@@ -472,7 +547,6 @@ replicateInst instr onsets = replicate onsets instr
 instrCycle:: Int -> InstNames -> InstNames
 instrCycle voices timbres = take voices $ cycle timbres
 ------------------------------------------------------------------
-
 -- canonicParams:: OnsetPattern -> VoicesData -> Streams -> [Params]
 -- canonicParams onsetP voices (Streams (Waveshape instName pitch patt) parametros) =
 --     let onsets = onsetToBool onsetP
@@ -488,7 +562,6 @@ instrCycle voices timbres = take voices $ cycle timbres
 -- parStringParam:: [String] -> [[Double]] -> [(String, [Double])]
 -- parStringParam [] [] = []
 -- parStringParam (x:xs) (y:ys) = (x, y) : parStringParam xs ys
-
 
 ------------------------------------- To parser Funcs------------------------------
 
@@ -520,36 +593,5 @@ repeater val num =
     let x = replicate num val
     in concat x
 
-
--- rotate :: Int -> [a] -> [a]
--- rotate _ [] = []
--- rotate n xs = zipWith const (drop n (cycle xs)) xs
-
 rotate :: Int -> [a] -> [a]
 rotate n xs = take lxs . drop (n `mod` lxs) . cycle $ xs where lxs = length xs
-
-
-toDB:: Num a => a -> a
-toDB x = x*(-1)
-
-
-
-
-
-
-
-
--- to incorporate various scaling factors:
-
-    -- let timesAndScales = map (\x -> timesWithScale times x) scaling
-    -- evLengthScaled = map (\x -> timesWithScale evLength x) scaling
-
-    -- totalDurs =map (\x-> totalDur' x) $ zip timesAndScales evLengthScaled
-    -- accDurs = scanl (+) 0 totalDurs
-    -- timesWithAccDurs = zip timesAndScales accDurs
-    -- plusOffset = concat $ map (\x -> scaledTimePlusOffset x) timesWithAccDurs
-    -- allTimes = plusOffset
-
-    -- evLengthconcat = concat evLengthScaled
-    -- pitchCycled = take (length timesAndScales) $ cycle pitches
-    -- instrCycled = take (length timesAndScales) $ cycle instruments

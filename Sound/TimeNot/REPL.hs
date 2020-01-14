@@ -81,9 +81,9 @@ eitherErrorOrProgram udp elMVar now (Left m) = {- putStrLn m -}do
   return ()
 eitherErrorOrProgram udp elMVar now (Right p) = do
   let es = progToEvents now p
-  putStrLn $ show (length es) 
+  putStrLn $ show (length $ es now now) 
   existing <- takeMVar elMVar
-  putMVar elMVar $ existing ++ es
+  putMVar elMVar $ existing ++ es now now -- these two nows need to change!!!!
 
 
 messageToProgram :: Maybe SOSC.Message -> Either String Program
