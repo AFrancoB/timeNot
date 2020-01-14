@@ -602,10 +602,18 @@ infiniteSortedCanon startTime period canon =
   in infinitizar startTime period sortedCanon
 
 getNextWindow startTime endTime restOfCanon =
-  let windowLength = length $ takeWhile ((wEnd >) .  time ) restOfCanon
+  let windowLength = length $ takeWhile ((endTime >) .  time ) restOfCanon
   in splitAt windowLength restOfCanon
 
 
 -- test
-(canon, _,_) =  canonToEvents oTime testCanToEv
-(w, newRestOfCanon) = getNextWindow wStart wEnd canon
+makeTime = UTCTime (fromGregorian 2020 01 10) . fromIntegral
+(canon, _,_) =  canonToEvents (makeTime 0) testCanToEv
+infcanon = infiniteSortedCanon (makeTime 0) 2 canon
+
+tenIntervals = 
+    map fst $ foldl (\acc n -> acc ++ [getNextWindow (makeTime n) (makeTime (n + 1)) (snd $ last acc)])
+    [getNextWindow (makeTime 0) (makeTime 1) infcanon]
+    [1..10]
+
+testData = map (\w -> ((time $ head w), (time $ last w), (length w))) tenIntervals
