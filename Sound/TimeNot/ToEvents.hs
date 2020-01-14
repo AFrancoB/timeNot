@@ -595,3 +595,17 @@ repeater val num =
 
 rotate :: Int -> [a] -> [a]
 rotate n xs = take lxs . drop (n `mod` lxs) . cycle $ xs where lxs = length xs
+
+
+infiniteSortedCanon startTime period canon =
+  let sortedCanon = sortBy (\a b -> compare (time a) (time b)) canon
+  in infinitizar startTime period sortedCanon
+
+getNextWindow startTime endTime restOfCanon =
+  let windowLength = length $ takeWhile ((wEnd >) .  time ) restOfCanon
+  in splitAt windowLength restOfCanon
+
+
+-- test
+(canon, _,_) =  canonToEvents oTime testCanToEv
+(w, newRestOfCanon) = getNextWindow wStart wEnd canon
