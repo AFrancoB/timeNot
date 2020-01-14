@@ -601,27 +601,20 @@ infiniteSortedCanon startTime period canon =
   let sortedCanon = sortBy (\a b -> compare (time a) (time b)) canon
   in infinitizar startTime period sortedCanon
 
-getNextWindow canon startTime endTime lastIndex =
-  let window = filter ((>= startTime) . time) $ takeWhile ((endTime >) .  time ) (snd $ splitAt lastIndex canon)
-      nextLastIndex = (length window)+ lastIndex
-  in (window, nextLastIndex)
+getNextWindow startTime endTime restOfCanon =
+  let windowLength = length $ takeWhile ((endTime >) .  time ) restOfCanon
+  in splitAt windowLength restOfCanon
 
 
 -- test
-(canon, _,_) = canonToEvents oTime testCanToEv
-makeTime = UTCTime (fromGregorian 2020 01 10)
+makeTime = UTCTime (fromGregorian 2020 01 10) . fromIntegral
+(canon, _,_) =  canonToEvents (makeTime 0) testCanToEv
 infcanon = infiniteSortedCanon (makeTime 0) 2 canon
--- (w, newRestOfCanon) = getNextWindow (makeTime 1) infcanon
--- (w1, newRestOfCanon1) = getNextWindow (makeTime 2) newRestOfCanon
--- (w2, newRestOfCanon2) = getNextWindow (makeTime 3) newRestOfCanon1
 
+tenIntervals = -- ten windows
+    map fst $ foldl (\acc n -> acc ++ [getNextWindow (makeTime n) (makeTime (n + 1)) (snd $ last acc)])
+    [getNextWindow (makeTime 0) (makeTime 1) infcanon]
+    [1..10]
 
-
--- makeWindows canon = 
---     foldl (\acc start -> 
---         acc ++ [getNextWindow canon (makeTime (start + 1)) (snd $ last acc)])
---     [getNextWindow canon (makeTime 1) (-1)]
---     [1..10]
--- inflist = [0..]
-tenIntervals = foldl (\acc n -> acc ++ [getNextWindow infcanon (makeTime $ fromIntegral (n - 1)) (makeTime $ fromIntegral n) (snd $ last acc)]) [getNextWindow infcanon (makeTime 0) (makeTime 1) (-1)] $ [2..10]
-testData  = map (\e -> ((time $ head $ fst e), (time $ last $ fst e), (length $ fst e))) tenIntervals
+-- extracts first and last events from each window and counts the total events in each one
+testData = map (\w -> ((time $ head w), (time $ last w), (length w))) tenIntervals
