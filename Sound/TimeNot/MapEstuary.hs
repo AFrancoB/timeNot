@@ -11,7 +11,7 @@ import Sound.TimeNot.AST
 import Sound.TimeNot.ToEvents
 import Sound.TimeNot.REPL
 
-timeNot:: UTCTime  ->  Text -> Either Text [(UTCTime, Map Text Datum)]
+timeNot:: UTCTime -> Text -> Either Text [(UTCTime, Map Text Datum)]
 timeNot now toEval = 
     let eval = evaluate $ Tx.unpack toEval
         program = errorOrEventsEstuary now eval
