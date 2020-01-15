@@ -595,3 +595,26 @@ repeater val num =
 
 rotate :: Int -> [a] -> [a]
 rotate n xs = take lxs . drop (n `mod` lxs) . cycle $ xs where lxs = length xs
+
+
+infiniteSortedCanon startTime period canon =
+  let sortedCanon = sortBy (\a b -> compare (time a) (time b)) canon
+  in infinitizar startTime period sortedCanon
+
+getNextWindow startTime endTime restOfCanon =
+  let windowLength = length $ takeWhile ((endTime >) .  time ) restOfCanon
+  in splitAt windowLength restOfCanon
+
+
+-- test
+makeTime = UTCTime (fromGregorian 2020 01 10) . fromIntegral
+(canon, _,_) =  canonToEvents (makeTime 0) testCanToEv
+infcanon = infiniteSortedCanon (makeTime 0) 2 canon
+
+tenIntervals = -- ten windows
+    map fst $ foldl (\acc n -> acc ++ [getNextWindow (makeTime n) (makeTime (n + 1)) (snd $ last acc)])
+    [getNextWindow (makeTime 0) (makeTime 1) infcanon]
+    [1..10]
+
+-- extracts first and last events from each window and counts the total events in each one
+testData = map (\w -> ((time $ head w), (time $ last w), (length w))) tenIntervals
