@@ -16,6 +16,8 @@ type EventF = UTCTime -> UTCTime -> [Event]
  --         Events  originTime   PeriodDuration
 type SLP = ([Event], UTCTime, NominalDiffTime)
 
+type SLPPure = ([PureEvent], UTCTime, NominalDiffTime)
+
 
 -- For Onset Pattern Parser
 type OnsetAttack = Bool
@@ -74,7 +76,7 @@ type Instrument = String  -- wtf is this? why?
 type Instruments = [InstNames]   -- crap
 
 
--- Event is what is send as an OSC message to SC
+-- Event is what is sent as an OSC message to SC
 data Event = Event {
   time :: UTCTime,
   lengthEvent :: LeEvent, 
@@ -84,7 +86,14 @@ data Event = Event {
   -- there should be out and pan as well
 } deriving (Show)
 
-
+data PureEvent = PEvent {
+  ptime :: Double,
+  plengthEvent :: LeEvent, 
+  ppitch :: Pitch,
+  pinstrument :: Instrument,
+  pamp :: Amp
+  -- there should be out and pan as well
+} deriving (Show)
 
 data Canon = Canon {
 

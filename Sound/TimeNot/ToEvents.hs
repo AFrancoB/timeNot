@@ -15,132 +15,90 @@ import Data.List
 import Data.Ord (comparing)
 import Data.Time
 import Music.Theory.Bjorklund
+import Data.Fixed
+import Control.Lens
 
 import Sound.TimeNot.AST
 import Sound.TimeNot.InfinityFuncs
 
 
--- toCollider:: UTCTime -> Program -> IO()
--- toCollider now prog = sendEvents $ progToEvents now prog
---toCollider prog = sequence $ fmap (sendEvents) $ progToEvents prog
-
+                    --    [Event]     UTCTime -> UTCTime -> [Event]
 progToEvents :: UTCTime -> Program -> EventF
-progToEvents oTime x' windowStart windowEnd = concat $ fmap (\x -> expToEvent oTime x windowStart windowEnd) x'
+progToEvents oTime p windowStart windowEnd = concat $ fmap (\exp -> expToEvent oTime exp windowStart windowEnd) p
 
 expToEvent :: UTCTime -> Expression -> EventF
-expToEvent oTime (RunTempo t) = \_ _ -> []
-expToEvent oTime (RunCanon c) = sLPToEventF $ canonToEvents oTime c
+expToEvent oTime (RunTempo t) windowStart windowEnd = []
+expToEvent oTime (RunCanon exp) windowStart windowEnd = sLPToEventF (canonToEvents oTime exp) windowStart windowEnd
 
 testCanToEv:: Canon
 testCanToEv = Canon {clength = ([2.0],True), onsetPattern = Onsets [(True,False),(True,False),(False,False),(True,False)], voices = [(1.0,0.0),(2.0,12.0),(3.0,-12.0)], canonType = Convergence (CP 4), streams = Synth (Waveshape ["saw","tri"]) "iso" [60.0, 62.0, 63.0, 65.0] [0.5]}
 -- |. 2s | 4s | 3s .|
 
 -- test
+makeTime = UTCTime (fromGregorian 2020 01 10) . fromIntegral
 
-wStart = UTCTime (fromGregorian 2020 01 10) 0
+wStart = makeTime 0
 
-wEnd = UTCTime (fromGregorian 2020 01 10) 1
+wEnd = makeTime 6
 
-oTime = UTCTime (fromGregorian 2020 01 10) 0
+oTime = makeTime 0
 
-period = realToFrac 2.0 :: NominalDiffTime
+period = 2 :: NominalDiffTime
+(canon', otime, period') = (canonToEvents oTime testCanToEv)
+times = map ptime canon'
+result = map (\n -> map time $ sLPToEventF (canon', otime, period') (makeTime n) (makeTime (n + 1))) [0..10]
 
-getPercentage:: NominalDiffTime -> NominalDiffTime -> NominalDiffTime -> NominalDiffTime
-getPercentage value scale limit = (value/scale) * limit 
+pureToEvent:: UTCTime -> PureEvent -> Event
+pureToEvent baseUTCTime e  = 
+    let t = (ptime e)
+        nomTime = realToFrac t :: NominalDiffTime
+        tiempo = addUTCTime nomTime baseUTCTime
+    in Event {time = tiempo, 
+              lengthEvent = (plengthEvent e), 
+              pitch = (ppitch e), 
+              instrument = (pinstrument e), 
+              amp = (pamp e)}
 
-sLPToEventF:: SLP -> EventF -- this is the last step to work ON!!!!!
+sLPToEventF:: SLPPure -> EventF -- this is the last step to work ON!!!!!
 sLPToEventF (es,oTime,period) wS wE = 
-    let (startWEv, wholeW, endWEv) = getWindowEvents (es, oTime, period) wStart wEnd
-        (elStart, elEnd) = ((diffUTCTime wS oTime) / period, (diffUTCTime wE oTime) / period)
-        firstWindow = map (\x -> x {time= addUTCTime (diffUTCTime wS oTime) (time x)} ) startWEv 
-        lastWindow = map (\x -> x {time= addUTCTime (diffUTCTime wE oTime) (time x)} ) endWEv
-        periodsToStart = floor $ (realToFrac (diffUTCTime wS oTime) :: NominalDiffTime) -- this are the cycles without decimals! PAY Attention!!
-        periodsToEnd = floor $ (realToFrac (diffUTCTime wE oTime) :: NominalDiffTime)
-        wholePeriods = map (\x -> realToFrac x :: NominalDiffTime) [(periodsToStart+1)..(periodsToEnd-1)]
-        inBetweenWindows = concat $ map (\x -> eventsWithWholePeriods oTime x es) wholePeriods
-    in firstWindow ++ inBetweenWindows ++ lastWindow
+        let wsperc = realToFrac (diffUTCTime wS oTime) :: Double
+            wLength = realToFrac (diffUTCTime wE wS) :: Double
+            period' = realToFrac period :: Double
+            startOfWindow = mod' wsperc period' 
+            endOfWindow = startOfWindow + wLength
+            infes = infinitizeEvents period' es
+            window = filter ((>=startOfWindow) . ptime) $ takeWhile ((<endOfWindow) . ptime) infes
+            normalizedWindow = map (\e-> pureToEvent wS $ e {ptime = (ptime e) - startOfWindow}) window :: [Event]
+        in  normalizedWindow
 
-eventsWithWholePeriods:: UTCTime -> NominalDiffTime -> [Event] -> [Event]
-eventsWithWholePeriods oTime period events = map (\x -> x {time= addUTCTime period (time x)}) events    
+infinitizeEvents:: Double -> [PureEvent] -> [PureEvent]
+infinitizeEvents period events = concat $ map (\cycle -> (map (\e -> e {ptime = (period*cycle)+(ptime e)}) events)) [0..]
 
-getWindowEvents:: ([Event], UTCTime, NominalDiffTime) -> UTCTime -> UTCTime -> ([Event],NominalDiffTime,[Event])
-getWindowEvents (es,oTime,period) wStart wEnd = 
-    let (sw, wholeWs, ew) = localWindows oTime period wStart wEnd 
-        es' = zip es [0..]
-        normEvents = map (\x-> (getPercentage (fst x) period 1, snd x)) $ map (\x -> (diffUTCTime (time (fst x)) oTime, snd x)) es'
-        startWFilter = filter (\x -> (fst x) >= sw) normEvents  
-        endWFilter = filter (\x -> (fst x) < ew) normEvents
-        startWFilter' = map (offJust) $ concat $ map (\x-> catchEvent startWFilter x oTime period) es
-        endWFilter' = map (offJust) $ concat $ map (\x -> catchEvent endWFilter x oTime period) es
-    in (startWFilter', wholeWs, endWFilter')
-
-catchEvent:: [(NominalDiffTime, Int)] -> Event -> UTCTime -> NominalDiffTime -> [Maybe Event]
-catchEvent filtered event oTime period =
-    let eventTime = diffUTCTime (time event) oTime
-        normEvent = getPercentage eventTime period 1
-        catch = map (\x -> if normEvent == (fst x) then Just event else Nothing) filtered
-    in onlyJusts catch 
- 
-offJust:: Maybe a -> a
-offJust (Just x) = x
-
-onlyJusts:: [Maybe a] -> [Maybe a] 
-onlyJusts x = filter (onlyJust) x
-
-onlyJust:: Maybe a -> Bool
-onlyJust (Just x) = True
-onlyJust Nothing = False
-
---                oTime     period     wStart     wEnd        locWS    locWE
---localWindows:: UTCTime -> NominalDiffTime -> UTCTime -> UTCTime -> [(UTCTime, Int, UTCTime)]
-localWindows otime period wS wE = 
-    let ws = diffUTCTime wS otime
-        we = diffUTCTime wE otime
-        wArea = we - ws
-        epTowS = ws/period -- ellapsed periods to window start
-        fracEPWS = epTowS - (realToFrac (floor epTowS) :: NominalDiffTime) -- starting point of the first window
-        epTowE = we/period -- ellapsed periods to window end
-        fracEPWE = epTowE - (realToFrac (floor epTowE) :: NominalDiffTime) -- ending point of the last window
-        numOfWholePeriods = (wArea/ period) - (fracEPWS + fracEPWE) 
-        (wsP, pds, weP) = (fracEPWS, numOfWholePeriods, fracEPWE)
-    in (wsP,pds,weP)
-
-
-eventsToSLP:: [Event] -> UTCTime -> [CanonDuration] -> SLP
+eventsToSLP:: [PureEvent] -> UTCTime -> [CanonDuration] -> SLPPure
 eventsToSLP es oTime canDurs = (es, oTime, realToFrac (sum canDurs) :: NominalDiffTime)
-
---                                      
-canonToEvents :: UTCTime -> Canon -> SLP
+                          
+canonToEvents :: UTCTime -> Canon -> SLPPure
 canonToEvents oTime x = 
     let timesOut = zipWith (+) (concat scaledTimes) offsets
-        nomTime = doubleToNDT timesOut
-        timesOut' = fmap (flip addUTCTime oTime) nomTime
         evLengthOut = concat $ scaledLength
         cyclePitch = take (length $ concat scaledTimes) $ cycle pitches
         cycleInstr = take (length $ concat scaledTimes) $ cycle instruments
         cycleAmps = take (length $ concat scaledTimes) $ cycle amps
-        zipped = zipWith5 Event (timesOut') (evLengthOut) (cyclePitch) (cycleInstr) (cycleAmps)
- --       loop = if (snd (clength x)) == True then (infinitizar oTime totalDur zipped) else zipped
-        toLoop = zipped
-    in eventsToSLP toLoop oTime (fst (clength x))  
-  where
-    scaling = scalingFactor (onsetPattern x) (voices x) (canonType x) (clength x) :: [Time]
-    times = canonicTime (onsetPattern x) (voices x) (canonType x) :: [[Time]]
-    totalDur = (sum (head times)) * (head scaling)
-    evLength = eventLength (onsetPattern x) (voices x) (canonType x) -- [LeEvents]
-    scaledTimes = scalingToDurations (concat times) scaling -- [Times]
-    scaledLength = scalingToDurations (concat evLength) scaling -- [Times]
- --   accOffsets = wrappAcc (clength x) -- ([Double],[Double])
-    offsets = getOffsetCLength (clength x) times -- [Double]
-    pitches = concat $ canonicPitch (onsetPattern x) (voices x) (streams x)
-    instruments = concat $ canonicTimbre (onsetPattern x) (voices x) (streams x)
-    amps = concat $ canonicAmp (onsetPattern x) (voices x) (streams x)
+        zipped = zipWith5 PEvent (timesOut) (evLengthOut) (cyclePitch) (cycleInstr) (cycleAmps)
+        events = sortBy (\ a b -> compare (ptime a) (ptime b)) zipped
+        period = (clength x)
+        scaling = scalingFactor (onsetPattern x) (voices x) (canonType x) (period) :: [Time]
+        times = canonicTime (onsetPattern x) (voices x) (canonType x) :: [[Time]]
+        totalDur = (sum (head times)) * (head scaling)
+        evLength = eventLength (onsetPattern x) (voices x) (canonType x) -- [LeEvents]
+        scaledTimes = scalingToDurations (concat times) scaling -- [Times]
+        scaledLength = scalingToDurations (concat evLength) scaling -- [Times]
+        offsets = getOffsetCLength (period) times -- [Double]
+        pitches = concat $ canonicPitch (onsetPattern x) (voices x) (streams x)
+        instruments = concat $ canonicTimbre (onsetPattern x) (voices x) (streams x)
+        amps = concat $ canonicAmp (onsetPattern x) (voices x) (streams x)
+    in  eventsToSLP events oTime (fst (period))  
 
-
-
-
-doubleToNDT:: [Time] -> [NominalDiffTime]
-doubleToNDT t = map (\x -> realToFrac x :: NominalDiffTime) t
 
 
     -- scale
@@ -159,18 +117,8 @@ getOffsetCLength canonSeqDurs cTimes =
         offsetNumber = (length cTimes)*events
     in replicateOffset accSeqDurs offsetNumber
 
-
--- ofsetsToCTimes::
--- getOffsetCLength:: ([Double], Double) -> [Times] -> [Double] -- number of voices
--- getOffsetCLength accDurs voices =
---     let events = length $ head voices
---         offsetNumber = (length voices)*events
---     in replicateOffset accDurs offsetNumber
-
-
 replicateOffset:: [Double] -> Int -> [Double]
 replicateOffset  accOfsets cycleLength = concat $ map (\x -> replicate cycleLength x) accOfsets
-
 
 wrappAcc:: ([CanonDuration],Loop) -> ([Double], Double)
 wrappAcc x = accumulateScaledTotalDurs $ fst x
@@ -253,7 +201,6 @@ scalingFactor onsetP voices canonType clengths =
 
 onsetToOnset :: OnsetPattern -> [Onset]
 onsetToOnset (Onsets x) = x
-
 
 --Example
 --Canon {clength = [1.0], voices = [(4.0,0.0),(5.0,12.0),(6.0,24.0)], onsetPattern = Onsets [True,False,True,False], metricDepth = 0.5, canonType = Convergence 3, streams = Streams (Waveshape ["sin"] [60.0,67.0] "iso") [("amp",[0.5])]})
@@ -400,8 +347,6 @@ rateTransps:: [Rate] -> VoicesData -> [Rates] -- rateTransps does nothing but re
 rateTransps x voices =
     let transps = map (snd) voices
     in replicate (length transps) x
-
-
 
 pitchTransps:: [Pitch] -> VoicesData -> [Pitches]
 pitchTransps x voices =
@@ -597,24 +542,7 @@ rotate :: Int -> [a] -> [a]
 rotate n xs = take lxs . drop (n `mod` lxs) . cycle $ xs where lxs = length xs
 
 
-infiniteSortedCanon startTime period canon =
-  let sortedCanon = sortBy (\a b -> compare (time a) (time b)) canon
-  in infinitizar startTime period sortedCanon
 
 getNextWindow startTime endTime restOfCanon =
   let windowLength = length $ takeWhile ((endTime >) .  time ) restOfCanon
   in splitAt windowLength restOfCanon
-
-
--- test
-makeTime = UTCTime (fromGregorian 2020 01 10) . fromIntegral
-(canon, _,_) =  canonToEvents (makeTime 0) testCanToEv
-infcanon = infiniteSortedCanon (makeTime 0) 2 canon
-
-tenIntervals = -- ten windows
-    map fst $ foldl (\acc n -> acc ++ [getNextWindow (makeTime n) (makeTime (n + 1)) (snd $ last acc)])
-    [getNextWindow (makeTime 0) (makeTime 1) infcanon]
-    [1..10]
-
--- extracts first and last events from each window and counts the total events in each one
-testData = map (\w -> ((time $ head w), (time $ last w), (length w))) tenIntervals

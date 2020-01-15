@@ -11,19 +11,19 @@ import Sound.TimeNot.AST
 import Sound.TimeNot.ToEvents
 import Sound.TimeNot.REPL
 
-timeNot:: UTCTime -> Text -> Either Text [(UTCTime, Map Text Datum)]
-timeNot now toEval = 
-    let eval = evaluate $ Tx.unpack toEval
-        program = errorOrEventsEstuary now eval
+--MapEstuary.hs
+timeNot:: UTCTime-> UTCTime -> UTCTime -> Text -> Either Text [(UTCTime, Map Text Datum)]
+timeNot oTime wStart wEnd text =
+    let eval = evaluate $ Tx.unpack text
+        program = errorOrEventsEstuary oTime wStart wEnd eval
     in program
 
-errorOrEventsEstuary:: UTCTime -> Either String Program -> Either Text [(UTCTime, Map Text Datum)]
-errorOrEventsEstuary now (Left m) = Left $ "Error at evaluation"
-errorOrEventsEstuary now (Right p) = 
-    let e = progToEvents now p -- :: [Event]
+errorOrEventsEstuary:: UTCTime -> Either String Program -> UTCTime -> UTCTime -> Either Text [(UTCTime, Map Text Datum)]
+errorOrEventsEstuary oTime (Left m) wStart wEnd = Left $ "Error at evaluation"
+errorOrEventsEstuary oTime (Right p) wStart wEnd = 
+    let e = progToEvents oTime p wSTart wEnd -- :: [Event]
         mapping = Prelude.map (mapEvent) e
     in Right mapping
-
 
 mapEvent:: Event -> (UTCTime, Map Text Datum)
 mapEvent (Event ti sus pi inst amp) =
