@@ -26,7 +26,7 @@ errorOrEventsEstuary oTime (Right p) wStart wEnd =
     in Right mapping
 
 mapEvent:: Event -> (UTCTime, Map Text Datum)
-mapEvent (Event ti sus pi inst amp) =
+mapEvent (Event ti sus pi inst amp n pan) =
     let tiempo = ti
         mapa = fromList [("cut", double sus), ("speed", double pi), ("sample_name", string inst), ("sample_n", string "0"), ("gain", double amp)]
     in (tiempo, mapa)

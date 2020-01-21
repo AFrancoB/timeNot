@@ -16,10 +16,8 @@ import Data.Ord (comparing)
 import Data.Time
 import Music.Theory.Bjorklund
 import Data.Fixed
-import Control.Lens
 
 import Sound.TimeNot.AST
-import Sound.TimeNot.InfinityFuncs
 
 
                     --    [Event]     UTCTime -> UTCTime -> [Event]
@@ -31,7 +29,8 @@ expToEvent oTime (RunTempo t) windowStart windowEnd = []
 expToEvent oTime (RunCanon exp) windowStart windowEnd = sLPToEventF (canonToEvents oTime exp) windowStart windowEnd
 
 testCanToEv:: Canon
-testCanToEv = Canon {clength = ([2.0],True), onsetPattern = Onsets [(True,False),(True,False),(False,False),(True,False)], voices = [(1.0,0.0),(2.0,12.0),(3.0,-12.0)], canonType = Convergence (CP 4), streams = Synth (Waveshape ["saw","tri"]) "iso" [60.0, 62.0, 63.0, 65.0] [0.5]}
+testCanToEv = Canon {clength = ([2.0],True), onsetPattern = Onsets [(True,False),(True,False),(False,False),(True,False)], voices = [(1.0,0.0),(2.0,12.0),(3.0,-12.0)], canonType = Convergence (CP 4), streams = Synth (Waveshape ["saw","tri"]) "iso" [60.0, 62.0, 63.0, 65.0] [0.5] ([0],[0]) [0]}
+testCanDirtToEv = Canon {clength = ([2.0],True), onsetPattern = Onsets [(True,False),(True,False),(False,False),(True,False)], voices = [(1.0,0.0),(2.0,12.0),(3.0,-12.0)], canonType = Convergence (CP 4), streams = Dirt (Dirties [("bd", 0)]) "iso" [60.0, 62.0, 63.0, 65.0] [0.5] n' [0]}
 -- |. 2s | 4s | 3s .|
 
 -- test
@@ -57,7 +56,9 @@ pureToEvent baseUTCTime e  =
               lengthEvent = (plengthEvent e), 
               pitch = (ppitch e), 
               instrument = (pinstrument e), 
-              amp = (pamp e)}
+              amp = (pamp e),
+              n = (pn e),
+              pan = (ppan e)}
 
 sLPToEventF:: SLPPure -> EventF -- this is the last step to work ON!!!!!
 sLPToEventF (es,oTime,period) wS wE = 
@@ -79,14 +80,7 @@ eventsToSLP es oTime canDurs = (es, oTime, realToFrac (sum canDurs) :: NominalDi
                           
 canonToEvents :: UTCTime -> Canon -> SLPPure
 canonToEvents oTime x = 
-    let timesOut = zipWith (+) (concat scaledTimes) offsets
-        evLengthOut = concat $ scaledLength
-        cyclePitch = take (length $ concat scaledTimes) $ cycle pitches
-        cycleInstr = take (length $ concat scaledTimes) $ cycle instruments
-        cycleAmps = take (length $ concat scaledTimes) $ cycle amps
-        zipped = zipWith5 PEvent (timesOut) (evLengthOut) (cyclePitch) (cycleInstr) (cycleAmps)
-        events = sortBy (\ a b -> compare (ptime a) (ptime b)) zipped
-        period = (clength x)
+    let period = (clength x)
         scaling = scalingFactor (onsetPattern x) (voices x) (canonType x) (period) :: [Time]
         times = canonicTime (onsetPattern x) (voices x) (canonType x) :: [[Time]]
         totalDur = (sum (head times)) * (head scaling)
@@ -97,9 +91,17 @@ canonToEvents oTime x =
         pitches = concat $ canonicPitch (onsetPattern x) (voices x) (streams x)
         instruments = concat $ canonicTimbre (onsetPattern x) (voices x) (streams x)
         amps = concat $ canonicAmp (onsetPattern x) (voices x) (streams x)
+        ns = concat $ canonicN (onsetPattern x) (voices x) (streams x)
+        timesOut = zipWith (+) (concat scaledTimes) offsets
+        evLengthOut = concat $ scaledLength
+
+        cyclePitch = take (length $ concat scaledTimes) $ cycle pitches
+        cycleInstr = take (length $ concat scaledTimes) $ cycle instruments
+        cycleAmps = take (length $ concat scaledTimes) $ cycle amps
+        cycleNs = take (length $ concat scaledTimes) $ cycle ns
+        zipped = zipWith7 PEvent (timesOut) (evLengthOut) (cyclePitch) (cycleInstr) (cycleAmps) (cycleNs) ([0])
+        events = sortBy (\ a b -> compare (ptime a) (ptime b)) zipped
     in  eventsToSLP events oTime (fst (period))  
-
-
 
     -- scale
 scalingToDurations:: Times -> Times -> [Times]
@@ -242,7 +244,7 @@ funcForConvPoint (CPString "lastx") onsets =
     let indexed = zip onsets [0,1..]
         filtered = filter (\par -> (fst par) == True) indexed
     in snd $ last filtered
-funcForConvPoint (CPString "palindrome") onsets =
+funcForConvPoint (CPString "cross") onsets =
     let int = fromIntegral (length onsets)
         half = int/2
     in round half
@@ -316,7 +318,7 @@ lastLeEvent indexedEvents =
 --------------------------------------
 
 canonicPitch:: OnsetPattern -> VoicesData -> Streams -> [Pitches]
-canonicPitch onsetP voices (Synth (Waveshape instNames) pattern pitches amps) =
+canonicPitch onsetP voices (Synth (Waveshape instNames) pattern pitches amps ns pans) =
     let onsetes = onsetToOnset onsetP
         onsets = map (fst) onsetes
         -- structure the pitch series in a structure depending in the organisation pattern:
@@ -325,7 +327,7 @@ canonicPitch onsetP voices (Synth (Waveshape instNames) pattern pitches amps) =
         transpPitches = pitchTransps pitchStruct voices
     in transpPitches
 
-canonicPitch onsetP voices (Sample (Samples instNames) pattern rates amps) =
+canonicPitch onsetP voices (Sample (Samples instNames) pattern rates amps ns pans) =
     let onsetes = onsetToOnset onsetP
         onsets = map (fst) onsetes
         -- structure the pitch series in a structure depending in the organisation pattern:
@@ -334,7 +336,7 @@ canonicPitch onsetP voices (Sample (Samples instNames) pattern rates amps) =
         transpRates = rateTransps rateStruct voices
     in transpRates
 
-canonicPitch onsetP voices (Dirt (Dirties instNames) pattern rates amps) =
+canonicPitch onsetP voices (Dirt (Dirties instNames) pattern rates amps ns pans) =
     let onsetes = onsetToOnset onsetP
         onsets = map (fst) onsetes
         -- structure the pitch series in a structure depending in the organisation pattern:
@@ -359,11 +361,62 @@ transport (tr:ansp) pitches = (map (+tr) pitches) : transport ansp pitches
 
 -- outputs an already filtered out grid version of pitch
 -- The values here are already the same as Onsets in the canonicDurationOutput
+
+------------------------------
+-- N implementation
+n' = ([1,2,1,1],[5,6,7]) -- [6,7,6,6] [7,8,7,7] [8,9,8,8]
+xoTest = [(True,False),(True,False),(True,False),(True,False),(True,False),(True,False),(False,False),(True,False),(True,False)]
+nTest= canonicN (Onsets xoTest) [(4.0,0.0),(5.0,12.0),(6.0,24.0),(7.0,-12.0),(8.0,-24.0)] (Dirt (Dirties [("bd", 0),("feel",1)]) "iso" [] [0.1] n' [0]) 
+    
+canonicN:: OnsetPattern -> VoicesData -> Streams -> [[NumSample]]
+canonicN onsetP voices (Dirt (Dirties webDirts) pattern rate amps ns pans) =
+    let onsetes = onsetToOnset onsetP
+        onsets = map (fst) onsetes
+        rows = fst ns
+        columns' = snd ns
+        columns = 
+            if (length columns') > (length voices) 
+                then take (length voices) columns' 
+                else take (length voices) $ cycle columns' 
+        matrix = map (\c -> getRows rows c) columns
+        applyPattern = map (\mx-> paramStructureInteger onsets mx pattern) matrix
+
+        voicesL = length voices
+        getIndexes = map (snd) webDirts
+        filtered = length $ filter (\x -> x == True) onsets
+        cycled = indexCycle voicesL getIndexes
+        replicates = map (\x -> replicateIndx x filtered) cycled
+        zipped = recursZips replicates applyPattern
+    in zipped
+
+canonicN onsetP voices (Sample (Samples instNames) pattern rate amps ns pans) = [[0]]
+
+canonicN onsetP voices (Synth (Waveshape instNames) pattern rate amps ns pans) = [[0]]
+
+getRows:: [Integer] -> Integer -> [Double]
+getRows rows column =  
+    let r = map (+ column) rows
+    in map (fromIntegral) r
+
+recursZips:: [[Integer]] -> [[Integer]] -> [[Integer]]
+recursZips [] [] = []
+recursZips (x:xs) (y:ys) = zipWith (+) x y : recursZips xs ys  
+
 ------------------------------------
 -- amp implementation
 
 canonicAmp:: OnsetPattern -> VoicesData -> Streams -> [Amps]
-canonicAmp onsetP voices (Synth (Waveshape instNames) pattern pitches amps) =
+canonicAmp onsetP voices (Synth (Waveshape instNames) pattern pitches amps ns pans) =
+    let onsetes = onsetToOnset onsetP
+        onsets = map (fst) onsetes
+        -- structure the amp series in a structure depending in the organisation pattern:
+        ampStruct = paramStructure onsets amps pattern
+        -- transpositions!
+        transpAmps = map (\x -> x / (fromIntegral (length (voices)) :: Double )) ampStruct
+        voicesAmps = replicate (length voices) transpAmps
+    in voicesAmps
+
+canonicAmp onsetP voices (Sample (Samples instNames) pattern rate amps ns pans) =
     let onsetes = onsetToOnset onsetP
         onsets = map (fst) onsetes
         -- structure the pitch series in a structure depending in the organisation pattern:
@@ -373,17 +426,7 @@ canonicAmp onsetP voices (Synth (Waveshape instNames) pattern pitches amps) =
         voicesAmps = replicate (length voices) transpAmps
     in voicesAmps
 
-canonicAmp onsetP voices (Sample (Samples instNames) pattern rate amps) =
-    let onsetes = onsetToOnset onsetP
-        onsets = map (fst) onsetes
-        -- structure the pitch series in a structure depending in the organisation pattern:
-        ampStruct = paramStructure onsets amps pattern
-        -- transpositions!
-        transpAmps = map (\x -> x / (fromIntegral (length (voices)) :: Double )) ampStruct
-        voicesAmps = replicate (length voices) transpAmps
-    in voicesAmps
-
-canonicAmp onsetP voices (Dirt (Dirties instNames) pattern rate amps) =
+canonicAmp onsetP voices (Dirt (Dirties instNames) pattern rate amps ns pans) =
     let onsetes = onsetToOnset onsetP
         onsets = map (fst) onsetes
         -- structure the pitch series in a structure depending in the organisation pattern:
@@ -394,6 +437,10 @@ canonicAmp onsetP voices (Dirt (Dirties instNames) pattern rate amps) =
     in voicesAmps
 
 -------------------------------------------------------
+
+paramStructureInteger:: [Bool] -> [Double] -> StreamPattern -> [Integer] 
+paramStructureInteger onsets params pattern = map (floor) $ paramStructure onsets params pattern
+
 paramStructure:: [Bool] -> [Double] -> StreamPattern -> [Double]
 paramStructure onsets params "isoGrid" = paramToIsoGrid onsets params
 paramStructure onsets params "iso" = paramToIso onsets params
@@ -456,7 +503,7 @@ listToBjork'' (x:y:ys) = y - x : listToBjork'' (y:ys)
 -- implement the instrument!!
 
 canonicTimbre:: OnsetPattern -> VoicesData -> Streams -> [InstNames]
-canonicTimbre onsetP voices (Sample (Samples instNames) pattern rate amp) =
+canonicTimbre onsetP voices (Sample (Samples instNames) pattern rate amp ns pans) =
     let onsetes = onsetToOnset onsetP
         onsets = map (fst) onsetes
         voicesL = length voices
@@ -466,7 +513,18 @@ canonicTimbre onsetP voices (Sample (Samples instNames) pattern rate amp) =
         cycled = instrCycle voicesL instNames
     in map (\x -> replicateInst x filtered) cycled
 
-canonicTimbre onsetP voices (Dirt (Dirties instNames) pattern rate amp) =
+canonicTimbre onsetP voices (Dirt (Dirties webDirts) pattern rate amp ns pans) =
+    let onsetes = onsetToOnset onsetP
+        onsets = map (fst) onsetes
+        voicesL = length voices
+        getInstrs = map (fst) webDirts
+            -- filters out the false onsetpoints
+        filtered = length $ filter (\x -> x == True) onsets
+            -- creates the instruments per voice list
+        cycled = instrCycle voicesL getInstrs
+    in map (\x -> replicateInst x filtered) cycled
+
+canonicTimbre onsetP voices (Synth (Waveshape instNames) pattern pitch amp ns pans) =
     let onsetes = onsetToOnset onsetP
         onsets = map (fst) onsetes
         voicesL = length voices
@@ -476,21 +534,19 @@ canonicTimbre onsetP voices (Dirt (Dirties instNames) pattern rate amp) =
         cycled = instrCycle voicesL instNames
     in map (\x -> replicateInst x filtered) cycled
 
-canonicTimbre onsetP voices (Synth (Waveshape instNames) pattern pitch amp) =
-    let onsetes = onsetToOnset onsetP
-        onsets = map (fst) onsetes
-        voicesL = length voices
-            -- filters out the false onsetpoints
-        filtered = length $ filter (\x -> x == True) onsets
-            -- creates the instruments per voice list
-        cycled = instrCycle voicesL instNames
-    in map (\x -> replicateInst x filtered) cycled
+------ get N of samples
 
 replicateInst:: String -> Int -> [String]
 replicateInst instr onsets = replicate onsets instr
 
+replicateIndx:: Index -> Int -> [Index]
+replicateIndx index onsets = replicate onsets index
+
 instrCycle:: Int -> InstNames -> InstNames
 instrCycle voices timbres = take voices $ cycle timbres
+
+indexCycle:: Int -> [Index] -> [Index]
+indexCycle voices timbres = take voices $ cycle timbres
 ------------------------------------------------------------------
 -- canonicParams:: OnsetPattern -> VoicesData -> Streams -> [Params]
 -- canonicParams onsetP voices (Streams (Waveshape instName pitch patt) parametros) =

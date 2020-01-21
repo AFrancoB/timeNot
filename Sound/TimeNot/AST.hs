@@ -43,16 +43,16 @@ type VoicesData = [VoiceData]
 -- strings for the names of the waves and the samples
 type Param = (String, [Double])
 type Params = [Param]
-type Index = Int
+type Index = Integer
 type InstName = String
 type InstNames = [String]
-type DirtInst = (InstName, Index) -- not implemented yet
+type WebDirt = (InstName, Index) -- not implemented yet
 type StreamPattern = String
-data Timbre = Waveshape InstNames | Samples InstNames | Dirties InstNames deriving (Show)
+data Timbre = Waveshape InstNames | Samples InstNames | Dirties [WebDirt] deriving (Show)
 data Streams = 
-  Synth Timbre StreamPattern Pitches Amps 
-  | Sample Timbre StreamPattern Rates Amps 
-  | Dirt Timbre StreamPattern Rates Amps  deriving (Show)
+  Synth Timbre StreamPattern Pitches Amps Ns Pans
+  | Sample Timbre StreamPattern Rates Amps Ns Pans
+  | Dirt Timbre StreamPattern Rates Amps Ns Pans deriving (Show)
      
 
 -- canonic function Data types
@@ -71,6 +71,10 @@ type Rates = [Rate]
 
 type Amp = Double
 type Amps = [Amp]
+type NumSample = Integer
+type Ns = ([NumSample],[NumSample])
+type Pan = Double
+type Pans = [Pan]
 
 type Instrument = String  -- wtf is this? why?
 type Instruments = [InstNames]   -- crap
@@ -82,7 +86,9 @@ data Event = Event {
   lengthEvent :: LeEvent, 
   pitch :: Pitch,
   instrument :: Instrument,
-  amp :: Amp
+  amp :: Amp,
+  n :: NumSample,
+  pan :: Pan
   -- there should be out and pan as well
 } deriving (Show)
 
@@ -91,7 +97,9 @@ data PureEvent = PEvent {
   plengthEvent :: LeEvent, 
   ppitch :: Pitch,
   pinstrument :: Instrument,
-  pamp :: Amp
+  pamp :: Amp,
+  pn :: NumSample,
+  ppan :: Pan
   -- there should be out and pan as well
 } deriving (Show)
 

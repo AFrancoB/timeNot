@@ -63,7 +63,7 @@ canonParser = do
     onset <- onsetPatternParser
     voiceData <- manualVoicesParser <|> return [(1.0,0.0)]
     canType <- canonTypeParser <|> return (Convergence (CP 1))
-    stream <- streamParser <|> return (Synth( Waveshape ["sin"]) "eu" [48.0] [0.5])
+    stream <- streamParser <|> return (Synth( Waveshape ["sin"]) "eu" [48.0] [0.5] ([0],[0]) [0.5])
     return (Canon length onset voiceData canType stream)
 
 -- maybe this is better?
@@ -429,13 +429,15 @@ streamParser = do
         try $ reserved "pyr" >> return ("pyr")
         ] <|> return ("iso")
     pitchRate <- pitchParser <|> rateParser <|> return (pitchOrRate timbre)
-    amp <- ampParser <|> return [0.5]
-    return (dirtsynthOrSample timbre pattern pitchRate amp)
+    amp <- ampParser <|> return [1.0]
+    n <- nParser <|> return ([0],[0])
+    pan <- return [0.5]
+    return (dirtsynthOrSample timbre pattern pitchRate amp n pan)
  
-dirtsynthOrSample:: Timbre -> StreamPattern -> [Double] -> [Amp] -> Streams
-dirtsynthOrSample (Waveshape w) x y z = (Synth (Waveshape w) x y z)
-dirtsynthOrSample (Samples w) x y z = (Sample (Samples w) x y z)   
-dirtsynthOrSample (Dirties w) x y z = (Dirt   (Dirties w) x y z)   
+dirtsynthOrSample:: Timbre -> StreamPattern -> [Double] -> [Amp] -> Ns -> Pans -> Streams
+dirtsynthOrSample (Waveshape w) x y z n p = (Synth (Waveshape w) x y z n p)
+dirtsynthOrSample (Samples w) x y z n p = (Sample (Samples w) x y z n p)   
+dirtsynthOrSample (Dirties w) x y z n p = (Dirt   (Dirties w) x y z n p)   
 
 
 pitchOrRate:: Timbre -> [Double]
@@ -451,13 +453,26 @@ pruebaStream x = parse streamParser "" x
 dirtParser:: Parser Timbre
 dirtParser = do
     try (reserved "dirts:")
+--    try (reserved "\"")
     x <- (sepBy dirtSampleParser comma)
+--    try (reserved "\"")
     return (Dirties x)
 
-dirtSampleParser:: Parser String
+
+dirtSampleParser:: Parser WebDirt
 dirtSampleParser = do
-    names <- stringLiteral 
-    return (names)
+    names <- identifier
+    x <- numParser <|> return (0)
+    return (names,x)
+
+numParser:: Parser Integer
+numParser = do 
+    try (reserved ":")
+    x <- integer
+    return x
+
+pruebaDirt :: String -> Either ParseError Timbre
+pruebaDirt x = parse dirtParser "" x
 
 listOfnamesIndexed:: InstName -> [Index] -> [(InstName, Index)]
 listOfnamesIndexed ins ixs = 
@@ -510,7 +525,7 @@ sampleParser = do
    
 -------------------pitchParser------------------------------
 
-pitchParser:: Parser Pitches   -- turn values into DB!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! -- how to parse -3.0 and -10.0... etc
+pitchParser:: Parser Pitches  
 pitchParser = do
     try $ reserved "pitch:" 
     vals <- many double <|> return [60.0]
@@ -528,6 +543,27 @@ rateParser = do
 pruebaRate :: String -> Either ParseError Rates
 pruebaRate x = parse pitchParser "" x
 
+---------------- N parser -----------------------
+
+nParser:: Parser ([Integer],[Integer]) 
+nParser = do
+    try $ reserved "n:" 
+    vals <- nPerVoice <|> return ([0],[0])
+    return (vals) 
+
+nPerVoice:: Parser ([Integer],[Integer])
+nPerVoice = do
+    try $ reserved "["
+    row <- many integer <|> return [0]
+    try $ reserved "]"
+    try $ reserved "<"
+    colm <- many integer <|> return [0]
+    try $ reserved ">"
+    return (row, colm)
+
+pruebaN :: String -> Either ParseError ([Integer],[Integer])
+pruebaN x = parse nParser "" x
+
 ------------------------ampParser------------------------------------------------
 
 ampParser:: Parser Amps   -- turn values into DB!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! -- how to parse -3.0 and -10.0... etc
@@ -536,25 +572,39 @@ ampParser = do
     vals <- many double 
     return (vals) 
 
+ampPerVoice:: Parser (Amps,Amps)
+ampPerVoice = do
+    try $ reserved "["
+    row <- many double <|> return [0.5]
+    try $ reserved "]"
+    try $ reserved "<"
+    colm <- many double <|> return [0.5]
+    try $ reserved ">"
+    return (row, colm)
+
 pruebaAmp :: String -> Either ParseError Amps
 pruebaAmp x = parse ampParser "" x
 
------------------------------------------------- this below might have to go
-paramParser :: Parser Param
-paramParser = do
-    paramName <- choice [
-        try $ reserved "amp:" >> (return "amp"),
-        try $ reserved "bla:" >> (return "bla")
-        ]
-    paramVal  <- many float
-    return (paramName, paramVal)
+----------- Pan Parser -------------------------------
 
-paramsParser :: Parser [Param]
-paramsParser = do
-    try $ reserved "args"
-    params <- paramParser `sepBy` comma
-    return params
+panParser:: Parser (Pans,Pans) 
+panParser = do
+    try (reserved "pan:")
+    vals <- panPerVoice <|> return ([0.0],[0.0])
+    return (vals) 
 
+panPerVoice:: Parser (Pans,Pans)
+panPerVoice = do
+    try $ reserved "["
+    row <- many double <|> return [0.5]
+    try $ reserved "]"
+    try $ reserved "<"
+    colm <- many double <|> return [0.5]
+    try $ reserved ">"
+    return (row, colm)
+
+pruebaPan :: String -> Either ParseError (Pans,Pans)
+pruebaPan x = parse panParser "" x
 
 ------------------------------------------
 -- transform integers parentesis and negatives into floats
