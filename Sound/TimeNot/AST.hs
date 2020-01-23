@@ -70,11 +70,11 @@ type Rate = Double
 type Rates = [Rate]
 
 type Amp = Double
-type Amps = [Amp]
+type Amps = ([Amp],[Amp])
 type NumSample = Integer
 type Ns = ([NumSample],[NumSample])
 type Pan = Double
-type Pans = [Pan]
+type Pans = ([Pan],[Pan])
 
 type Instrument = String  -- wtf is this? why?
 type Instruments = [InstNames]   -- crap

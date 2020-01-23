@@ -63,7 +63,7 @@ canonParser = do
     onset <- onsetPatternParser
     voiceData <- manualVoicesParser <|> return [(1.0,0.0)]
     canType <- canonTypeParser <|> return (Convergence (CP 1))
-    stream <- streamParser <|> return (Synth( Waveshape ["sin"]) "eu" [48.0] [0.5] ([0],[0]) [0.5])
+    stream <- streamParser <|> return (Synth( Waveshape ["sin"]) "eu" [48.0] ([0.5],[0.5]) ([0],[0]) ([0.5],[0]))
     return (Canon length onset voiceData canType stream)
 
 -- maybe this is better?
@@ -429,12 +429,12 @@ streamParser = do
         try $ reserved "pyr" >> return ("pyr")
         ] <|> return ("iso")
     pitchRate <- pitchParser <|> rateParser <|> return (pitchOrRate timbre)
-    amp <- ampParser <|> return [1.0]
+    amp <- ampParser <|> return ([0.45],[0.45])
     n <- nParser <|> return ([0],[0])
-    pan <- return [0.5]
+    pan <- panParser <|> return ([0.5],[0.0])
     return (dirtsynthOrSample timbre pattern pitchRate amp n pan)
  
-dirtsynthOrSample:: Timbre -> StreamPattern -> [Double] -> [Amp] -> Ns -> Pans -> Streams
+dirtsynthOrSample:: Timbre -> StreamPattern -> [Double] -> Amps -> Ns -> Pans -> Streams
 dirtsynthOrSample (Waveshape w) x y z n p = (Synth (Waveshape w) x y z n p)
 dirtsynthOrSample (Samples w) x y z n p = (Sample (Samples w) x y z n p)   
 dirtsynthOrSample (Dirties w) x y z n p = (Dirt   (Dirties w) x y z n p)   
@@ -548,7 +548,7 @@ pruebaRate x = parse pitchParser "" x
 nParser:: Parser ([Integer],[Integer]) 
 nParser = do
     try $ reserved "n:" 
-    vals <- nPerVoice <|> return ([0],[0])
+    vals <- nPerVoice
     return (vals) 
 
 nPerVoice:: Parser ([Integer],[Integer])
@@ -566,34 +566,34 @@ pruebaN x = parse nParser "" x
 
 ------------------------ampParser------------------------------------------------
 
-ampParser:: Parser Amps   -- turn values into DB!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! -- how to parse -3.0 and -10.0... etc
+ampParser:: Parser ([Amp], [Amp])   -- turn values into DB!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! -- how to parse -3.0 and -10.0... etc
 ampParser = do
     try (reserved "amp:")
-    vals <- many double 
+    vals <- ampPerVoice
     return (vals) 
 
-ampPerVoice:: Parser (Amps,Amps)
+ampPerVoice:: Parser ([Amp], [Amp])
 ampPerVoice = do
     try $ reserved "["
-    row <- many double <|> return [0.5]
+    row <- many double <|> return [0]
     try $ reserved "]"
     try $ reserved "<"
-    colm <- many double <|> return [0.5]
+    colm <- many double <|> return [0]
     try $ reserved ">"
     return (row, colm)
 
-pruebaAmp :: String -> Either ParseError Amps
+pruebaAmp :: String -> Either ParseError ([Amp], [Amp])
 pruebaAmp x = parse ampParser "" x
 
 ----------- Pan Parser -------------------------------
 
-panParser:: Parser (Pans,Pans) 
+panParser:: Parser ([Pan],[Pan]) 
 panParser = do
     try (reserved "pan:")
     vals <- panPerVoice <|> return ([0.0],[0.0])
     return (vals) 
 
-panPerVoice:: Parser (Pans,Pans)
+panPerVoice:: Parser ([Pan],[Pan])
 panPerVoice = do
     try $ reserved "["
     row <- many double <|> return [0.5]
@@ -603,7 +603,7 @@ panPerVoice = do
     try $ reserved ">"
     return (row, colm)
 
-pruebaPan :: String -> Either ParseError (Pans,Pans)
+pruebaPan :: String -> Either ParseError ([Pan],[Pan])
 pruebaPan x = parse panParser "" x
 
 ------------------------------------------
