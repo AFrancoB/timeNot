@@ -8,6 +8,7 @@ repeater,
 eucToOnsetPattern,
 fullEucToOnsetPattern,
 {- toCollider, -}
+mapForEstuary,
 render,
 onsetToOnset
 ) where
@@ -31,8 +32,8 @@ mapForEstuary (Event ti sus pi inst amp n pan) =
         mapa = Mp.fromList [("cut", Osc.double sus), ("speed", Osc.double pi), ("sample_name", Osc.string inst), ("sample_n", Osc.int32 n), ("gain", Osc.double amp), ("pan", Osc.double pan)]
     in (tiempo, mapa)
 
-
-                    --    [Event]     UTCTime -> UTCTime -> [Event]
+-- common source estuary type tempo
+    --  (CPS, at, beat) (work in this)           [Event]     UTCTime -> UTCTime -> [Event]
 render :: UTCTime -> Program -> EventF
 render oTime p windowStart windowEnd = concat $ fmap (\exp -> expToEvent oTime exp windowStart windowEnd) p
 
