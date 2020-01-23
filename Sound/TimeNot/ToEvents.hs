@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Sound.TimeNot.ToEvents
 (testTimes,
 testPitch,
@@ -7,7 +8,7 @@ repeater,
 eucToOnsetPattern,
 fullEucToOnsetPattern,
 {- toCollider, -}
-progToEvents,
+render,
 onsetToOnset
 ) where
 
@@ -16,13 +17,24 @@ import Data.Ord (comparing)
 import Data.Time
 import Music.Theory.Bjorklund
 import Data.Fixed
+import qualified Data.Map.Strict as Mp
+import qualified Data.Text as Tx
+import Data.Text (Text)
+import qualified Sound.OSC as Osc
 
 import Sound.TimeNot.AST
 
 
+mapForEstuary:: Event -> (UTCTime, Mp.Map Text Osc.Datum)
+mapForEstuary (Event ti sus pi inst amp n pan) =
+    let tiempo = ti
+        mapa = Mp.fromList [("cut", Osc.double sus), ("speed", Osc.double pi), ("sample_name", Osc.string inst), ("sample_n", Osc.int32 n), ("gain", Osc.double amp), ("pan", Osc.double pan)]
+    in (tiempo, mapa)
+
+
                     --    [Event]     UTCTime -> UTCTime -> [Event]
-progToEvents :: UTCTime -> Program -> EventF
-progToEvents oTime p windowStart windowEnd = concat $ fmap (\exp -> expToEvent oTime exp windowStart windowEnd) p
+render :: UTCTime -> Program -> EventF
+render oTime p windowStart windowEnd = concat $ fmap (\exp -> expToEvent oTime exp windowStart windowEnd) p
 
 expToEvent :: UTCTime -> Expression -> EventF
 expToEvent oTime (RunTempo t) windowStart windowEnd = []

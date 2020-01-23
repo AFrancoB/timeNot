@@ -80,7 +80,7 @@ eitherErrorOrProgram udp elMVar now (Left m) = {- putStrLn m -}do
   sendError udp m
   return ()
 eitherErrorOrProgram udp elMVar now (Right p) = do
-  let es = progToEvents now p
+  let es = render now p
   putStrLn $ show (length $ es now now) 
   existing <- takeMVar elMVar
   putMVar elMVar $ existing ++ es now now -- these two nows need to change!!!!
