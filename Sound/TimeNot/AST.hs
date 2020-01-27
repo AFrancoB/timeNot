@@ -50,8 +50,7 @@ data Timbre = Waveshape InstNames | Samples InstNames | Dirties [WebDirt] derivi
 data Streams = 
   Synth Timbre StreamPattern Pitches Amps Ns Pans Speeds Notes
   | Sample Timbre StreamPattern Rates Amps Ns Pans Speeds Notes
-  | Dirt Timbre StreamPattern Rates Amps Ns Pans Speeds Notes deriving (Show)
-     
+  | Dirt Timbre StreamPattern Rates Amps Ns Pans Speeds Notes deriving (Show) 
 
 -- canonic function Data types
 type OnsetDur = Double -- ¿¿¿wtf is this???
@@ -81,6 +80,8 @@ type Shape = Double
 type Shapes = ([Shape],[Shape])
 type CutOff = Double
 type CutOffs = ([CutOff],[CutOff])
+
+data Param = AmpVal Amps | SampNum Ns | PanVal Pans | SpeedVal Speeds | NoteVal Notes deriving (Show)
 
 type Instrument = String  -- wtf is this? why?
 type Instruments = [InstNames]   -- crap

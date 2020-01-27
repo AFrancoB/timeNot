@@ -270,6 +270,7 @@ funcForConvPoint (CPString "eje") onsets =
     let int = fromIntegral (length onsets)
         half = int/2
     in round half
+funcForConvPoint (CPString _) onsets = 0
 
 -- filter out the false onsets and keeps only the Durs so Length can be added
 filterOnsets:: [(Bool, Time)] -> [Time]

@@ -4,6 +4,7 @@ import Text.Parsec
 import Text.ParserCombinators.Parsec.Prim hiding (try)
 import Data.Functor.Identity
 import qualified Text.Parsec.Token as P
+import qualified Data.Either  as Ei
 
 -- My stuff
 import Sound.TimeNot.AST
@@ -397,8 +398,6 @@ canonTypeParser = do
     -- to test the parser use this function --
 pruebaCanonType :: String -> Either ParseError CanonType
 pruebaCanonType x = parse canonTypeParser "" x
-
-
 ---------------------------------------------------------------------
     --------- Stream Parser -----------
 streamParser :: Parser Streams
@@ -419,30 +418,41 @@ streamParser = do
         try $ reserved "pyr" >> return ("pyr")
         ] <|> return ("iso")
     pitchRate <- pitchParser <|> rateParser <|> return (pitchOrRate timbre)
-    params <- many1 (noteParser <|> speedParser <|> nParser <|> ampParser <|> panParser) <|> return [("n",Left ([0],[0]))]
-    return (dirtsynthOrSample timbre pattern pitchRate 
-        (last $ map (ampDef) params)
-        (last $ map (nDef) params)
-        (last $ map (panDef) params)
-        (last $ map (speedDef) params)
-        (last $ map (noteDef) params)
-        )
- 
+    params <- commaSep $ controlPatterns -- :: [Param]
+    let (amp,n,pan,speed,note) = (getAmps params ([0.9],[0]), getNs params ([0],[0]), getPans params ([0.5],[0]), getSpeeds params ([1],[0]), getNotes params ([0],[0]))
+    return (dirtsynthOrSample timbre pattern pitchRate amp n pan speed note)
 
-noteDef ("note",Right x) = x
-noteDef (_,_) = ([0],[0])
+getAmps :: [Param] -> Amps -> Amps
+getAmps ((AmpVal x):xs) _ = x
+getAmps (x:xs) d = getAmps xs d
+getAmps [] d = d
 
-speedDef ("amp",Right x) = x
-speedDef (_,_) = ([1],[0])
+getNs :: [Param] -> Ns -> Ns
+getNs ((SampNum x):xs) _ = x
+getNs (x:xs) d = getNs xs d
+getNs [] d = d
 
-nDef ("n",Left x) = x
-nDef (_,_) = ([0],[0])
+getPans :: [Param] -> Pans -> Pans
+getPans ((PanVal x):xs) _ = x
+getPans (x:xs) d = getPans xs d
+getPans [] d = d
 
-ampDef ("amp",Right x) = x
-ampDef (_,_) = ([0.9],[0])
+getSpeeds :: [Param] -> Speeds -> Speeds
+getSpeeds ((SpeedVal x):xs) _ = x
+getSpeeds (x:xs) d = getSpeeds xs d
+getSpeeds [] d = d
 
-panDef ("pan",Right x) = x
-panDef (_,_) = ([0.5],[0])
+getNotes :: [Param] -> Notes -> Notes
+getNotes ((NoteVal x):xs) _ = x
+getNotes (x:xs) d = getNotes xs d
+getNotes [] d = d
+
+controlPatterns :: Parser Param
+controlPatterns = choice [try noteParser, try speedParser, try nParser, try ampParser, try panParser]
+
+pruebaControlPatt :: String -> Either ParseError Param
+pruebaControlPatt x = parse controlPatterns "" x
+
 
 dirtsynthOrSample:: Timbre -> StreamPattern -> [Double] -> Amps -> Ns -> Pans -> Speeds -> Notes -> Streams
 dirtsynthOrSample (Waveshape w) patt pi amp n pan sp nt = (Synth (Waveshape w) patt pi amp n pan sp nt)
@@ -583,36 +593,36 @@ pruebaParamsI x = parse paramsI "" x
 
 ---------------- N parser -----------------------
 
-nParser:: Parser (String,(Either ([Integer],[Integer]) ([Double],[Double])))
+nParser:: Parser Param
 nParser = do
     reserved "n:" 
     vals <- paramsI
-    return ("n",Left vals) 
+    return (SampNum vals)
 
 
-pruebaN :: String -> Either ParseError (String,(Either ([Integer],[Integer]) ([Double],[Double])))
+pruebaN :: String -> Either ParseError Param
 pruebaN x = parse nParser "" x
 
 ------------------------ampParser------------------------------------------------
 
-ampParser:: Parser (String,(Either ([Integer],[Integer]) ([Double],[Double])))   -- turn values into DB!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! -- how to parse -3.0 and -10.0... etc
+ampParser:: Parser Param  -- turn values into DB!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! -- how to parse -3.0 and -10.0... etc
 ampParser = do
     reserved "amp:"
     vals <- paramsD
-    return ("amp", Right vals) 
+    return (AmpVal vals)
 
-pruebaAmp :: String -> Either ParseError (String,(Either ([Integer],[Integer]) ([Double],[Double])))
+pruebaAmp :: String -> Either ParseError Param
 pruebaAmp x = parse ampParser "" x
 
 ----------- Pan Parser -------------------------------
 
-panParser:: Parser (String,(Either ([Integer],[Integer]) ([Double],[Double]))) 
+panParser:: Parser Param
 panParser = do
     reserved "pan:"
     vals <- paramsD
-    return ("pan",Right vals) 
+    return (PanVal vals)
 
-pruebaPan :: String -> Either ParseError (String,(Either ([Integer],[Integer]) ([Double],[Double])))
+pruebaPan :: String -> Either ParseError Param
 pruebaPan x = parse panParser "" x
 
 ----------- Length Parser -------------------------------
@@ -639,35 +649,35 @@ pruebacutOff x = parse cutOffParser "" x
 
 ----------- note Parser -------------------------------
 
-noteParser:: Parser (String,(Either ([Integer],[Integer]) ([Double],[Double]))) 
+noteParser:: Parser Param
 noteParser = do
     try (reserved "note:")
     vals <- paramsD
-    return ("note", Right vals) 
+    return (NoteVal vals)
 
-pruebaNote :: String -> Either ParseError (String,(Either ([Integer],[Integer]) ([Double],[Double]))) 
+pruebaNote :: String -> Either ParseError Param
 pruebaNote x = parse noteParser "" x
 
 ----------- speed Parser -------------------------------
 
-speedParser:: Parser (String,(Either ([Integer],[Integer]) ([Double],[Double]))) 
+speedParser:: Parser Param
 speedParser = do
     try (reserved "speed:")
     vals <- paramsD
-    return ("speed", Right vals) 
+    return (SpeedVal vals)
 
-pruebaSpeed :: String -> Either ParseError (String,(Either ([Integer],[Integer]) ([Double],[Double]))) 
+pruebaSpeed :: String -> Either ParseError Param
 pruebaSpeed x = parse speedParser "" x
 
 ----------- shape Parser -------------------------------
 
-shapeParser:: Parser (String,(Either ([Integer],[Integer]) ([Double],[Double]))) 
+shapeParser:: Parser Param
 shapeParser = do
     try (reserved "shape:")
     vals <- paramsD
-    return ("shape", Right vals) 
+    return (AmpVal vals)
 
-pruebaShape :: String -> Either ParseError (String,(Either ([Integer],[Integer]) ([Double],[Double]))) 
+pruebaShape :: String -> Either ParseError Param
 pruebaShape x = parse shapeParser "" x
 
 ------------------------------------------
@@ -685,14 +695,8 @@ double = do
 doublePrueba :: String -> Either ParseError Double
 doublePrueba x = parse double "" x
 
-
-
 ----------------------------------------------------------------------
 ----------------------------------------------------------------------
-
-
-
-
 theLanguageDef :: P.GenLanguageDef [Char] () Identity
 theLanguageDef = P.LanguageDef {
   P.commentStart = "/*",
