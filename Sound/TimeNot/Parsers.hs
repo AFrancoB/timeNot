@@ -4,7 +4,6 @@ import Text.Parsec
 import Text.ParserCombinators.Parsec.Prim hiding (try)
 import Data.Functor.Identity
 import qualified Text.Parsec.Token as P
-import qualified Data.Either  as Ei
 
 -- My stuff
 import Sound.TimeNot.AST
