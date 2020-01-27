@@ -7,7 +7,8 @@ import qualified Text.Parsec.Token as P
 
 -- My stuff
 import Sound.TimeNot.AST
-import Sound.TimeNot.ToEvents
+import Sound.TimeNot.Render
+
 
 --Parser to put together the structures! -------------------------------
 
@@ -63,7 +64,7 @@ canonParser = do
     onset <- onsetPatternParser
     voiceData <- manualVoicesParser <|> return [(1.0,0.0)]
     canType <- canonTypeParser <|> return (Convergence (CP 1))
-    stream <- streamParser <|> return (Synth( Waveshape ["sin"]) "eu" [48.0] ([0.5],[0.5]) ([0],[0]) ([0.5],[0]))
+    stream <- streamParser <|> return (Synth( Waveshape ["sin"]) "eu" [48.0] ([0.5],[0.5]) ([0],[0]) ([0.5],[0]) ([1],[0]) ([0],[0]))
     return (Canon length onset voiceData canType stream)
 
 -- maybe this is better?
@@ -283,18 +284,8 @@ parserO = do
 -- pruebaEucledian :: String -> Either ParseError [Onset]
 -- pruebaEucledian x = parse euclidianParser "" x
 
----------------------------------------------------------------------
---   Canonise:    -- probably this is not useful
-canoniseParser :: Parser CanonData
-canoniseParser = do
-    try (reserved "Can:")
-    x <- choice [ manualVoicesParser ]
-    y <- canonTypeParser
-    return ((x,y)) -- still not ready to use. canonParser does not hold it yet
 ---------------------------------------------------------------
 -- Voices
-
--- Fold parsers are not working properly. There seems to be aproblem with all this returns that avoid the voicesParser to fail
 
 manualVoicesParser :: Parser VoicesData
 manualVoicesParser = do
@@ -388,7 +379,7 @@ cpStringParser = do
     choice[
         try $ reserved "last" >> return (CPString "last"),
         try $ reserved "lastx" >> return (CPString "lastx"),
-        try $ reserved "palindrome" >> return (CPString "palindrome")
+        try $ reserved "eje" >> return (CPString "eje")
         ]
 
 
@@ -417,7 +408,6 @@ streamParser = do
         try $ waveParser,
         try $ dirtParser
         ] <|> (return (Waveshape ["sin"]))
---    params <- paramsParser <|> (return [("amp", [0.5])]) 
     pattern <- choice [ 
         try $ reserved "iso" >> return ("iso"),
         try $ reserved "isoGrid" >> return ("isoGrid"),
@@ -429,15 +419,35 @@ streamParser = do
         try $ reserved "pyr" >> return ("pyr")
         ] <|> return ("iso")
     pitchRate <- pitchParser <|> rateParser <|> return (pitchOrRate timbre)
-    amp <- ampParser <|> return ([0.45],[0.45])
-    n <- nParser <|> return ([0],[0])
-    pan <- panParser <|> return ([0.5],[0.0])
-    return (dirtsynthOrSample timbre pattern pitchRate amp n pan)
+    params <- many1 (noteParser <|> speedParser <|> nParser <|> ampParser <|> panParser) <|> return [("n",Left ([0],[0]))]
+    return (dirtsynthOrSample timbre pattern pitchRate 
+        (last $ map (ampDef) params)
+        (last $ map (nDef) params)
+        (last $ map (panDef) params)
+        (last $ map (speedDef) params)
+        (last $ map (noteDef) params)
+        )
  
-dirtsynthOrSample:: Timbre -> StreamPattern -> [Double] -> Amps -> Ns -> Pans -> Streams
-dirtsynthOrSample (Waveshape w) x y z n p = (Synth (Waveshape w) x y z n p)
-dirtsynthOrSample (Samples w) x y z n p = (Sample (Samples w) x y z n p)   
-dirtsynthOrSample (Dirties w) x y z n p = (Dirt   (Dirties w) x y z n p)   
+
+noteDef ("note",Right x) = x
+noteDef (_,_) = ([0],[0])
+
+speedDef ("amp",Right x) = x
+speedDef (_,_) = ([1],[0])
+
+nDef ("n",Left x) = x
+nDef (_,_) = ([0],[0])
+
+ampDef ("amp",Right x) = x
+ampDef (_,_) = ([0.9],[0])
+
+panDef ("pan",Right x) = x
+panDef (_,_) = ([0.5],[0])
+
+dirtsynthOrSample:: Timbre -> StreamPattern -> [Double] -> Amps -> Ns -> Pans -> Speeds -> Notes -> Streams
+dirtsynthOrSample (Waveshape w) patt pi amp n pan sp nt = (Synth (Waveshape w) patt pi amp n pan sp nt)
+dirtsynthOrSample (Samples w) patt pi amp n pan sp nt = (Sample (Samples w) patt pi amp n pan sp nt)   
+dirtsynthOrSample (Dirties w) patt pi amp n pan sp nt = (Dirt   (Dirties w) patt pi amp n pan sp nt)   
 
 
 pitchOrRate:: Timbre -> [Double]
@@ -452,10 +462,8 @@ pruebaStream x = parse streamParser "" x
 ------------ dirtParser--------------
 dirtParser:: Parser Timbre
 dirtParser = do
-    try (reserved "dirts:")
---    try (reserved "\"")
+    try (reserved "dirts:") -- separate identifier dirts with operator :
     x <- (sepBy dirtSampleParser comma)
---    try (reserved "\"")
     return (Dirties x)
 
 
@@ -543,68 +551,124 @@ rateParser = do
 pruebaRate :: String -> Either ParseError Rates
 pruebaRate x = parse pitchParser "" x
 
----------------- N parser -----------------------
+---------------- Canonic Parameter parser -------------------
+-- the [] values are the vals for the event line, the <> values are a transposition val of the voices
 
-nParser:: Parser ([Integer],[Integer]) 
-nParser = do
-    try $ reserved "n:" 
-    vals <- nPerVoice
-    return (vals) 
 
-nPerVoice:: Parser ([Integer],[Integer])
-nPerVoice = do
-    try $ reserved "["
-    row <- many integer <|> return [0]
-    try $ reserved "]"
-    try $ reserved "<"
-    colm <- many integer <|> return [0]
-    try $ reserved ">"
+paramsD:: Parser ([Double],[Double])
+paramsD = do
+    reserved "["
+    row <- many double <|> return [0]
+    reserved "]"
+    reserved "<"
+    colm <- many double <|> return [0]
+    reserved ">"
     return (row, colm)
 
-pruebaN :: String -> Either ParseError ([Integer],[Integer])
+pruebaParamsD :: String -> Either ParseError ([Double],[Double])
+pruebaParamsD x = parse paramsD "" x
+
+paramsI:: Parser ([Integer],[Integer])
+paramsI = do
+    reserved "["
+    row <- many integer <|> return [0]
+    reserved "]"
+    reserved "<"
+    colm <- many integer <|> return [0]
+    reserved ">"
+    return (row, colm)
+
+pruebaParamsI :: String -> Either ParseError ([Integer],[Integer])
+pruebaParamsI x = parse paramsI "" x
+
+---------------- N parser -----------------------
+
+nParser:: Parser (String,(Either ([Integer],[Integer]) ([Double],[Double])))
+nParser = do
+    reserved "n:" 
+    vals <- paramsI
+    return ("n",Left vals) 
+
+
+pruebaN :: String -> Either ParseError (String,(Either ([Integer],[Integer]) ([Double],[Double])))
 pruebaN x = parse nParser "" x
 
 ------------------------ampParser------------------------------------------------
 
-ampParser:: Parser ([Amp], [Amp])   -- turn values into DB!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! -- how to parse -3.0 and -10.0... etc
+ampParser:: Parser (String,(Either ([Integer],[Integer]) ([Double],[Double])))   -- turn values into DB!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! -- how to parse -3.0 and -10.0... etc
 ampParser = do
-    try (reserved "amp:")
-    vals <- ampPerVoice
-    return (vals) 
+    reserved "amp:"
+    vals <- paramsD
+    return ("amp", Right vals) 
 
-ampPerVoice:: Parser ([Amp], [Amp])
-ampPerVoice = do
-    try $ reserved "["
-    row <- many double <|> return [0]
-    try $ reserved "]"
-    try $ reserved "<"
-    colm <- many double <|> return [0]
-    try $ reserved ">"
-    return (row, colm)
-
-pruebaAmp :: String -> Either ParseError ([Amp], [Amp])
+pruebaAmp :: String -> Either ParseError (String,(Either ([Integer],[Integer]) ([Double],[Double])))
 pruebaAmp x = parse ampParser "" x
 
 ----------- Pan Parser -------------------------------
 
-panParser:: Parser ([Pan],[Pan]) 
+panParser:: Parser (String,(Either ([Integer],[Integer]) ([Double],[Double]))) 
 panParser = do
-    try (reserved "pan:")
-    vals <- panPerVoice <|> return ([0.0],[0.0])
+    reserved "pan:"
+    vals <- paramsD
+    return ("pan",Right vals) 
+
+pruebaPan :: String -> Either ParseError (String,(Either ([Integer],[Integer]) ([Double],[Double])))
+pruebaPan x = parse panParser "" x
+
+----------- Length Parser -------------------------------
+
+lengthParser:: Parser ([Double],[Double]) 
+lengthParser = do
+    reserved "len:"
+    vals <- paramsD
     return (vals) 
 
-panPerVoice:: Parser ([Pan],[Pan])
-panPerVoice = do
-    try $ reserved "["
-    row <- many double <|> return [0.5]
-    try $ reserved "]"
-    try $ reserved "<"
-    colm <- many double <|> return [0.5]
-    try $ reserved ">"
-    return (row, colm)
+pruebaLength :: String -> Either ParseError ([Pan],[Pan])
+pruebaLength x = parse lengthParser "" x
 
-pruebaPan :: String -> Either ParseError ([Pan],[Pan])
-pruebaPan x = parse panParser "" x
+----------- CutOff Parser -------------------------------
+
+cutOffParser:: Parser (String,(Either ([Integer],[Integer]) ([Double],[Double]))) 
+cutOffParser = do
+    try (reserved "cutOff:")
+    vals <- paramsD
+    return ("cuteOff", Right vals) 
+
+pruebacutOff :: String -> Either ParseError (String,(Either ([Integer],[Integer]) ([Double],[Double]))) 
+pruebacutOff x = parse cutOffParser "" x
+
+----------- note Parser -------------------------------
+
+noteParser:: Parser (String,(Either ([Integer],[Integer]) ([Double],[Double]))) 
+noteParser = do
+    try (reserved "note:")
+    vals <- paramsD
+    return ("note", Right vals) 
+
+pruebaNote :: String -> Either ParseError (String,(Either ([Integer],[Integer]) ([Double],[Double]))) 
+pruebaNote x = parse noteParser "" x
+
+----------- speed Parser -------------------------------
+
+speedParser:: Parser (String,(Either ([Integer],[Integer]) ([Double],[Double]))) 
+speedParser = do
+    try (reserved "speed:")
+    vals <- paramsD
+    return ("speed", Right vals) 
+
+pruebaSpeed :: String -> Either ParseError (String,(Either ([Integer],[Integer]) ([Double],[Double]))) 
+pruebaSpeed x = parse speedParser "" x
+
+----------- shape Parser -------------------------------
+
+shapeParser:: Parser (String,(Either ([Integer],[Integer]) ([Double],[Double]))) 
+shapeParser = do
+    try (reserved "shape:")
+    vals <- paramsD
+    return ("shape", Right vals) 
+
+pruebaShape :: String -> Either ParseError (String,(Either ([Integer],[Integer]) ([Double],[Double]))) 
+pruebaShape x = parse shapeParser "" x
 
 ------------------------------------------
 -- transform integers parentesis and negatives into floats

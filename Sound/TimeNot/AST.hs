@@ -41,8 +41,6 @@ type VoicesData = [VoiceData]
 
 -- For Sound Parser
 -- strings for the names of the waves and the samples
-type Param = (String, [Double])
-type Params = [Param]
 type Index = Integer
 type InstName = String
 type InstNames = [String]
@@ -50,9 +48,9 @@ type WebDirt = (InstName, Index) -- not implemented yet
 type StreamPattern = String
 data Timbre = Waveshape InstNames | Samples InstNames | Dirties [WebDirt] deriving (Show)
 data Streams = 
-  Synth Timbre StreamPattern Pitches Amps Ns Pans
-  | Sample Timbre StreamPattern Rates Amps Ns Pans
-  | Dirt Timbre StreamPattern Rates Amps Ns Pans deriving (Show)
+  Synth Timbre StreamPattern Pitches Amps Ns Pans Speeds Notes
+  | Sample Timbre StreamPattern Rates Amps Ns Pans Speeds Notes
+  | Dirt Timbre StreamPattern Rates Amps Ns Pans Speeds Notes deriving (Show)
      
 
 -- canonic function Data types
@@ -75,6 +73,14 @@ type NumSample = Integer
 type Ns = ([NumSample],[NumSample])
 type Pan = Double
 type Pans = ([Pan],[Pan])
+type Speed = Double
+type Speeds = ([Speed],[Speed])
+type Note = Double
+type Notes = ([Note],[Note])
+type Shape = Double
+type Shapes = ([Shape],[Shape])
+type CutOff = Double
+type CutOffs = ([CutOff],[CutOff])
 
 type Instrument = String  -- wtf is this? why?
 type Instruments = [InstNames]   -- crap
@@ -88,8 +94,11 @@ data Event = Event {
   instrument :: Instrument,
   amp :: Amp,
   n :: NumSample,
-  pan :: Pan
-  -- there should be out and pan as well
+  pan :: Pan,
+  speed :: Double,
+  note :: Double,
+  shape :: Double,
+  cutOff :: Double
 } deriving (Show)
 
 data PureEvent = PEvent {
@@ -99,8 +108,11 @@ data PureEvent = PEvent {
   pinstrument :: Instrument,
   pamp :: Amp,
   pn :: NumSample,
-  ppan :: Pan
-  -- there should be out and pan as well
+  ppan :: Pan,
+  pspeed :: Double,
+  pnote :: Double,
+  pshape :: Double,
+  pcutOff :: Double
 } deriving (Show)
 
 data Canon = Canon {
