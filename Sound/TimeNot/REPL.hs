@@ -15,7 +15,7 @@ import Data.Either
 
 import Sound.TimeNot.AST
 import Sound.TimeNot.Parsers
-import Sound.TimeNot.ToEvents
+import Sound.TimeNot.Render
 
 
 scheduler :: UDP -> MVar [Event] -> IO ()
@@ -42,7 +42,7 @@ eventTime e = (i1,i2,e)
   where (i1,i2) = utcTimeToSplitPosixTime (time e)
       
 sendEvent:: UDP -> (Int,Int,Event) ->  IO()
-sendEvent udp (secs,mSecs,(Event v w x y z n p)) = sendTo udp p a
+sendEvent udp (secs,mSecs,(Event v w x y z n p a b c d)) = sendTo udp p a
   where 
     p = SOSC.p_message "/canon" [SOSC.int32 secs, SOSC.int32 mSecs, SOSC.double w, SOSC.double x, SOSC.string y, SOSC.double z]
     a = SockAddrInet 57120 $ tupleToHostAddress (127,0,0,1)
