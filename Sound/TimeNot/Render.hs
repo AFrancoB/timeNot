@@ -482,17 +482,17 @@ canonicParam:: OnsetPattern -> VoicesData -> String -> Streams -> [[Pan]]
 canonicParam onsetP voices which (Synth x pattern pitches amps ns pans spd nt) 
     | (which == "amp") = canonicParam' onsetP voices amps pattern
     | (which == "pan") = canonicParam' onsetP voices pans pattern
-    | (which == "spd") = canonicParam' onsetP voices spd pattern
+    | (which == "speed") = canonicParam' onsetP voices spd pattern
     | (which == "note") = canonicParam' onsetP voices nt pattern
 canonicParam onsetP voices which (Sample x pattern rates amps ns pans spd nt) 
     | (which == "amp") = canonicParam' onsetP voices amps pattern
     | (which == "pan") = canonicParam' onsetP voices pans pattern
-    | (which == "spd") = canonicParam' onsetP voices spd pattern
+    | (which == "speed") = canonicParam' onsetP voices spd pattern
     | (which == "note") = canonicParam' onsetP voices nt pattern
 canonicParam onsetP voices which (Dirt x pattern rates amps ns pans spd nt)
     | (which == "amp") = canonicParam' onsetP voices amps pattern
     | (which == "pan") = canonicParam' onsetP voices pans pattern
-    | (which == "spd") = canonicParam' onsetP voices spd pattern
+    | (which == "speed") = canonicParam' onsetP voices spd pattern
     | (which == "note") = canonicParam' onsetP voices nt pattern 
 
 canonicParam':: OnsetPattern -> VoicesData -> ([Double],[Double]) -> StreamPattern -> [[Double]]
