@@ -48,9 +48,9 @@ type WebDirt = (InstName, Index) -- not implemented yet
 type StreamPattern = String
 data Timbre = Waveshape InstNames | Samples InstNames | Dirties [WebDirt] deriving (Show)
 data Streams = 
-  Synth Timbre StreamPattern Pitches Amps Ns Pans Speeds Notes
-  | Sample Timbre StreamPattern Rates Amps Ns Pans Speeds Notes
-  | Dirt Timbre StreamPattern Rates Amps Ns Pans Speeds Notes deriving (Show) 
+  Synth Timbre StreamPattern Pitches Amps Ns Pans Speeds Notes Shapes
+  | Sample Timbre StreamPattern Rates Amps Ns Pans Speeds Notes Shapes
+  | Dirt Timbre StreamPattern Rates Amps Ns Pans Speeds Notes Shapes deriving (Show) 
 
 -- canonic function Data types
 type OnsetDur = Double -- ¿¿¿wtf is this???
@@ -81,7 +81,7 @@ type Shapes = ([Shape],[Shape])
 type CutOff = Double
 type CutOffs = ([CutOff],[CutOff])
 
-data Param = AmpVal Amps | SampNum Ns | PanVal Pans | SpeedVal Speeds | NoteVal Notes deriving (Show)
+data Param = AmpVal Amps | SampNum Ns | PanVal Pans | SpeedVal Speeds | NoteVal Notes | ShapeVal Shapes deriving (Show)
 
 type Instrument = String  -- wtf is this? why?
 type Instruments = [InstNames]   -- crap

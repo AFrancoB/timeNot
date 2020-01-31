@@ -64,7 +64,7 @@ canonParser = do
     onset <- onsetPatternParser
     voiceData <- manualVoicesParser <|> return [(1.0,0.0)]
     canType <- canonTypeParser <|> return (Convergence (CP 1))
-    stream <- streamParser <|> return (Synth( Waveshape ["sin"]) "eu" [48.0] ([0.5],[0.5]) ([0],[0]) ([0.5],[0]) ([1],[0]) ([0],[0]))
+    stream <- streamParser <|> return (Synth( Waveshape ["sin"]) "eu" [48.0] ([0.5],[0.5]) ([0],[0]) ([0.5],[0]) ([1],[0]) ([0],[0]) ([0],[0]))
     return (Canon length onset voiceData canType stream)
 
 -- maybe this is better?
@@ -418,8 +418,8 @@ streamParser = do
         ] <|> return ("iso")
     pitchRate <- pitchParser <|> rateParser <|> return (pitchOrRate timbre)
     params <- commaSep $ controlPatterns -- :: [Param]
-    let (amp,n,pan,speed,note) = (getAmps params ([0.9],[0]), getNs params ([0],[0]), getPans params ([0.5],[0]), getSpeeds params ([1],[0]), getNotes params ([0],[0]))
-    return (dirtsynthOrSample timbre pattern pitchRate amp n pan speed note)
+    let (amp,n,pan,speed,note,shape) = (getAmps params ([0.9],[0]), getNs params ([0],[0]), getPans params ([0.5],[0]), getSpeeds params ([1],[0]), getNotes params ([0],[0]), getShapes params ([0],[0]))
+    return (dirtsynthOrSample timbre pattern pitchRate amp n pan speed note shape)
 
 getAmps :: [Param] -> Amps -> Amps
 getAmps ((AmpVal x):xs) _ = x
@@ -446,17 +446,22 @@ getNotes ((NoteVal x):xs) _ = x
 getNotes (x:xs) d = getNotes xs d
 getNotes [] d = d
 
+getShapes :: [Param] -> Shapes -> Shapes
+getShapes ((ShapeVal x):xs) _ = x
+getShapes (x:xs) d = getShapes xs d
+getShapes [] d = d
+
 controlPatterns :: Parser Param
-controlPatterns = choice [try noteParser, try speedParser, try nParser, try ampParser, try panParser]
+controlPatterns = choice [try noteParser, try speedParser, try nParser, try ampParser, try panParser, try shapeParser]
 
 pruebaControlPatt :: String -> Either ParseError Param
 pruebaControlPatt x = parse controlPatterns "" x
 
 
-dirtsynthOrSample:: Timbre -> StreamPattern -> [Double] -> Amps -> Ns -> Pans -> Speeds -> Notes -> Streams
-dirtsynthOrSample (Waveshape w) patt pi amp n pan sp nt = (Synth (Waveshape w) patt pi amp n pan sp nt)
-dirtsynthOrSample (Samples w) patt pi amp n pan sp nt = (Sample (Samples w) patt pi amp n pan sp nt)   
-dirtsynthOrSample (Dirties w) patt pi amp n pan sp nt = (Dirt   (Dirties w) patt pi amp n pan sp nt)   
+dirtsynthOrSample:: Timbre -> StreamPattern -> [Double] -> Amps -> Ns -> Pans -> Speeds -> Notes -> Shapes -> Streams
+dirtsynthOrSample (Waveshape w) patt pi amp n pan sp nt shp = (Synth (Waveshape w) patt pi amp n pan sp nt shp)
+dirtsynthOrSample (Samples w) patt pi amp n pan sp nt shp = (Sample (Samples w) patt pi amp n pan sp nt shp)   
+dirtsynthOrSample (Dirties w) patt pi amp n pan sp nt shp = (Dirt   (Dirties w) patt pi amp n pan sp nt shp)   
 
 
 pitchOrRate:: Timbre -> [Double]
@@ -623,17 +628,6 @@ panParser = do
 
 pruebaPan :: String -> Either ParseError Param
 pruebaPan x = parse panParser "" x
-
------------ Length Parser -------------------------------
-
-lengthParser:: Parser ([Double],[Double]) 
-lengthParser = do
-    reserved "len:"
-    vals <- paramsD
-    return (vals) 
-
-pruebaLength :: String -> Either ParseError ([Pan],[Pan])
-pruebaLength x = parse lengthParser "" x
 
 ----------- CutOff Parser -------------------------------
 
