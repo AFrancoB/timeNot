@@ -28,7 +28,7 @@ import Sound.TimeNot.AST
 mapForEstuary:: Event -> (UTCTime, Mp.Map Text Osc.Datum)
 mapForEstuary (Event ti sus pi inst amp n pan spd nt shp ctff) =
     let tiempo = ti
-        mapa = Mp.fromList [("note", Osc.double nt), ("speed", Osc.double spd), ("sample_name", Osc.string inst), ("sample_n", Osc.int32 n), ("gain", Osc.double amp), ("pan", Osc.double pan)]
+        mapa = Mp.fromList [("note", Osc.double nt), ("speed", Osc.double spd), ("s", Osc.string inst), ("n", Osc.int32 n), ("gain", Osc.double amp), ("pan", Osc.double pan)]
     in (tiempo, mapa)
 
 -- common source estuary type tempo

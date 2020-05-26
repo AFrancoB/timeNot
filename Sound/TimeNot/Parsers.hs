@@ -476,7 +476,7 @@ pruebaStream x = parse streamParser "" x
 ------------ dirtParser--------------
 dirtParser:: Parser Timbre
 dirtParser = do
-    try (reserved "dirts:") -- separate identifier dirts with operator :
+    try (reserved "s:") -- separate identifier dirts with operator :
     x <- (sepBy dirtSampleParser comma)
     return (Dirties x)
 
